@@ -134,11 +134,13 @@ func Create(ctx context.Context, driver neo4j.DriverWithContext, databaseName st
 		props["Name"] = input.UserName
 		props["UserName"] = input.UserName
 		props["UserEmail"] = input.UserEmail
+		// TODO(sstpa-auth): compute salted hash once the auth layer lands;
+		// SRS §1.4.4 permits email as an interim equivalent identifier.
 		props["UserHash"] = input.UserEmail
 		props["HIDSequence"] = nextSeq
 
 		createCypher := fmt.Sprintf(`
-MATCH (container:%s)
+MERGE (container:%s)
 CREATE (n:%s:SSTPANode)
 SET n = $props
 MERGE (container)-[:%s]->(n)
