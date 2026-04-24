@@ -82,6 +82,10 @@ func (api api) createOnboardingHandler(kind onboarding.Kind) http.HandlerFunc {
 			return
 		}
 
+		// TODO(sstpa-auth): the self-declaration fallback (Actor == payload values) is an
+		// installer affordance per SRS §1.4.2: the first Admin + User have no pre-existing
+		// identity to attribute. Once the auth layer lands, require X-SSTPA-User headers
+		// for POST /admins and tighten the fallback for POST /users to first-run only.
 		actor, err := actorFromRequest(request, metadata.Actor{})
 		if err != nil {
 			actor = metadata.Actor{Name: payload.UserName, Email: payload.UserEmail}
