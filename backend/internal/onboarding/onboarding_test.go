@@ -76,7 +76,7 @@ func TestCreateListGetUser(t *testing.T) {
 		t.Fatal("expected duplicate registration to error")
 	}
 
-	list, err := List(ctx, fixture.Driver, "", UserKind, Page{Page: 1, Limit: 10, Offset: 0})
+	list, err := List(ctx, fixture.Driver, "", UserKind, Page{Page: 1, Limit: 10})
 	if err != nil {
 		t.Fatalf("list users: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestCreateListGetAdmin(t *testing.T) {
 		t.Fatalf("expected HID to start with ADM__, got %q", record.HID)
 	}
 
-	list, err := List(ctx, fixture.Driver, "", AdminKind, Page{Page: 1, Limit: 10, Offset: 0})
+	list, err := List(ctx, fixture.Driver, "", AdminKind, Page{Page: 1, Limit: 10})
 	if err != nil {
 		t.Fatalf("list admins: %v", err)
 	}

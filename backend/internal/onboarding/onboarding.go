@@ -63,9 +63,8 @@ type ListResult struct {
 }
 
 type Page struct {
-	Page   int
-	Limit  int
-	Offset int
+	Page  int
+	Limit int
 }
 
 var ErrAlreadyRegistered = errors.New("user already registered")
@@ -176,6 +175,10 @@ func List(ctx context.Context, driver neo4j.DriverWithContext, databaseName stri
 	if page.Limit <= 0 {
 		page.Limit = 50
 	}
+	if page.Page < 1 {
+		page.Page = 1
+	}
+	offset := (page.Page - 1) * page.Limit
 
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: databaseName})
 	defer session.Close(ctx)
@@ -188,7 +191,7 @@ RETURN n.HID AS hid, n.uuid AS uuid, n.TypeName AS typeName,
        n.Created AS created, n.LastTouch AS lastTouch
 ORDER BY n.HID
 SKIP $skip LIMIT $limit
-`, map[string]any{"skip": page.Offset, "limit": page.Limit})
+`, map[string]any{"skip": offset, "limit": page.Limit})
 		if err != nil {
 			return ListResult{}, err
 		}
@@ -209,11 +212,7 @@ SKIP $skip LIMIT $limit
 			return ListResult{}, err
 		}
 
-		pageNumber := page.Page
-		if pageNumber < 1 {
-			pageNumber = 1
-		}
-		return ListResult{Items: items, Page: pageNumber, Limit: page.Limit, Total: total}, nil
+		return ListResult{Items: items, Page: page.Page, Limit: page.Limit, Total: total}, nil
 	})
 	if err != nil {
 		return ListResult{}, err
