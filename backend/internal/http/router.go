@@ -10,6 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+
+	"sstpa-tool/backend/internal/onboarding"
 )
 
 type RouterOptions struct {
@@ -58,6 +60,12 @@ func NewRouterWithOptions(options RouterOptions) http.Handler {
 		group.Get("/references/assignments/{sourceHID}", api.listReferenceAssignmentsHandler)
 		group.Post("/references/assignments", api.createReferenceAssignmentHandler)
 		group.Delete("/references/assignments", api.deleteReferenceAssignmentHandler)
+		group.Get("/users", api.listOnboardingHandler(onboarding.UserKind))
+		group.Post("/users", api.createOnboardingHandler(onboarding.UserKind))
+		group.Get("/users/{uuid}", api.getOnboardingHandler(onboarding.UserKind))
+		group.Get("/admins", api.listOnboardingHandler(onboarding.AdminKind))
+		group.Post("/admins", api.createOnboardingHandler(onboarding.AdminKind))
+		group.Get("/admins/{uuid}", api.getOnboardingHandler(onboarding.AdminKind))
 	})
 
 	return router
