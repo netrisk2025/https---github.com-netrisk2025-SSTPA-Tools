@@ -20,6 +20,11 @@ type createOnboardingRequest struct {
 	UserEmail string `json:"userEmail"`
 }
 
+type bootstrapInstallerRequest struct {
+	InstallerName  string `json:"installerName"`
+	InstallerEmail string `json:"installerEmail"`
+}
+
 func (api api) listOnboardingHandler(kind onboarding.Kind) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		if !api.requireDriver(writer) {
@@ -82,13 +87,9 @@ func (api api) createOnboardingHandler(kind onboarding.Kind) http.HandlerFunc {
 			return
 		}
 
-		// TODO(sstpa-auth): the self-declaration fallback (Actor == payload values) is an
-		// installer affordance per SRS §1.4.2: the first Admin + User have no pre-existing
-		// identity to attribute. Once the auth layer lands, require X-SSTPA-User headers
-		// for POST /admins and tighten the fallback for POST /users to first-run only.
-		actor, err := actorFromRequest(request, metadata.Actor{})
-		if err != nil {
-			actor = metadata.Actor{Name: payload.UserName, Email: payload.UserEmail}
+		actor, ok := api.actorForOnboardingCreate(writer, request, kind, payload)
+		if !ok {
+			return
 		}
 
 		record, err := onboarding.Create(request.Context(), api.driver, api.databaseName, kind, onboarding.CreateInput{
@@ -108,4 +109,64 @@ func (api api) createOnboardingHandler(kind onboarding.Kind) http.HandlerFunc {
 
 		writeJSON(writer, http.StatusCreated, record)
 	}
+}
+
+func (api api) bootstrapInstallerHandler(writer http.ResponseWriter, request *http.Request) {
+	if !api.requireDriver(writer) {
+		return
+	}
+
+	var payload bootstrapInstallerRequest
+	if err := decodeJSON(request, &payload); err != nil {
+		writeError(writer, http.StatusBadRequest, err.Error())
+		return
+	}
+	if payload.InstallerName == "" || payload.InstallerEmail == "" {
+		writeError(writer, http.StatusBadRequest, "installerName and installerEmail are required")
+		return
+	}
+
+	result, err := onboarding.BootstrapInstaller(request.Context(), api.driver, api.databaseName, onboarding.BootstrapInput{
+		InstallerName:  payload.InstallerName,
+		InstallerEmail: payload.InstallerEmail,
+		Now:            api.now(),
+	})
+	if err != nil {
+		if errors.Is(err, onboarding.ErrAlreadyRegistered) {
+			writeError(writer, http.StatusConflict, err.Error())
+			return
+		}
+		writeError(writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(writer, http.StatusCreated, result)
+}
+
+func (api api) actorForOnboardingCreate(writer http.ResponseWriter, request *http.Request, kind onboarding.Kind, payload createOnboardingRequest) (metadata.Actor, bool) {
+	if kind == onboarding.UserKind {
+		actor, err := actorFromRequest(request, metadata.Actor{})
+		if err != nil {
+			return metadata.Actor{Name: payload.UserName, Email: payload.UserEmail}, true
+		}
+		return actor, true
+	}
+
+	actor, err := actorFromRequest(request, metadata.Actor{})
+	if err != nil || !actor.Admin {
+		writeError(writer, http.StatusForbidden, "registered admin actor is required")
+		return metadata.Actor{}, false
+	}
+
+	registered, err := onboarding.IsRegisteredAdmin(request.Context(), api.driver, api.databaseName, actor)
+	if err != nil {
+		writeError(writer, http.StatusInternalServerError, err.Error())
+		return metadata.Actor{}, false
+	}
+	if !registered {
+		writeError(writer, http.StatusForbidden, "registered admin actor is required")
+		return metadata.Actor{}, false
+	}
+
+	return actor, true
 }

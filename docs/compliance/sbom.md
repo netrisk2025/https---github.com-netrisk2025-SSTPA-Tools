@@ -487,7 +487,7 @@ Components requiring license review: 0
 | docker | caddy | 2.9 | Apache-2.0 | infra/docker/compose.yaml |
 | docker | grafana/grafana | 11.5.2 | AGPL-3.0-only | infra/docker/compose.yaml |
 | docker | grafana/tempo | 2.7.1 | AGPL-3.0-only | infra/docker/compose.yaml |
-| docker | neo4j | 5.26-community | GPL-3.0-only | infra/docker/compose.yaml |
+| docker | neo4j | 2026.04.0-community | GPL-3.0-only | infra/docker/compose.yaml |
 | docker | otel/opentelemetry-collector | 0.122.1 | Apache-2.0 | infra/docker/compose.yaml |
 | docker | prom/prometheus | v3.2.1 | Apache-2.0 | infra/docker/compose.yaml |
 | go | cel.dev/expr | v0.25.1 | Apache-2.0 | backend/go.mod |

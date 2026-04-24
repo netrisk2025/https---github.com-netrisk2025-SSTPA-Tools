@@ -35,6 +35,9 @@ const (
 	NodeTypeHazard            NodeType = "Hazard"
 	NodeTypeLoss              NodeType = "Loss"
 	NodeTypeAttack            NodeType = "Attack"
+	NodeTypeSSTPATool         NodeType = "SSTPA_Tool"
+	NodeTypeUserRegistry      NodeType = "UserRegistry"
+	NodeTypeAdminRegistry     NodeType = "AdminRegistry"
 	NodeTypeUser              NodeType = "User"
 	NodeTypeAdmin             NodeType = "Admin"
 )
@@ -67,6 +70,9 @@ var typeIDs = map[NodeType]string{
 	NodeTypeHazard:            "HAZ",
 	NodeTypeLoss:              "LOS",
 	NodeTypeAttack:            "ATK",
+	NodeTypeSSTPATool:         "SST",
+	NodeTypeUserRegistry:      "URG",
+	NodeTypeAdminRegistry:     "ARG",
 	NodeTypeUser:              "USR",
 	NodeTypeAdmin:             "ADM",
 }
@@ -99,6 +105,9 @@ var orderedTypes = []NodeType{
 	NodeTypeHazard,
 	NodeTypeLoss,
 	NodeTypeAttack,
+	NodeTypeSSTPATool,
+	NodeTypeUserRegistry,
+	NodeTypeAdminRegistry,
 	NodeTypeUser,
 	NodeTypeAdmin,
 }

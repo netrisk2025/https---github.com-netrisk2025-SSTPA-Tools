@@ -8,6 +8,7 @@ package testhelpers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,13 +27,25 @@ type Neo4jFixture struct {
 
 func StartNeo4j(t testing.TB) Neo4jFixture {
 	t.Helper()
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			message := fmt.Sprint(recovered)
+			if strings.Contains(message, "docker") ||
+				strings.Contains(message, "Docker") ||
+				strings.Contains(message, "unix:///var/run/docker.sock") ||
+				strings.Contains(message, "permission denied") {
+				t.Skipf("docker unavailable: %v", recovered)
+			}
+			panic(recovered)
+		}
+	}()
 
 	ctx := context.Background()
 	const password = "test-password"
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "neo4j:5.26-community",
+			Image:        "neo4j:2026.04.0-community",
 			ExposedPorts: []string{"7687/tcp"},
 			Env: map[string]string{
 				"NEO4J_AUTH": "neo4j/" + password,

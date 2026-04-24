@@ -161,6 +161,21 @@ paths:
     delete:
       responses:
         "200": { description: Transactional reference assignment removal. }
+  /onboarding/bootstrap:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [installerName, installerEmail]
+              properties:
+                installerName: { type: string }
+                installerEmail: { type: string, format: email }
+      responses:
+        "201": { description: First-run installer admin and user records. }
+        "409": { description: An Admin or User is already registered. }
   /users:
     get:
       parameters:
@@ -198,8 +213,22 @@ paths:
       responses:
         "200": { description: Paginated registered admins. }
     post:
+      parameters:
+        - name: X-SSTPA-User
+          in: header
+          required: true
+          schema: { type: string }
+        - name: X-SSTPA-User-Email
+          in: header
+          required: true
+          schema: { type: string, format: email }
+        - name: X-SSTPA-Admin
+          in: header
+          required: true
+          schema: { type: string, enum: ["true"] }
       responses:
         "201": { description: Newly registered admin. }
+        "403": { description: Registered Admin actor required. }
         "409": { description: Admin email already registered. }
   /admins/{uuid}:
     get:

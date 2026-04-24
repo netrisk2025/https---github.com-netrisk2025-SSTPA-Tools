@@ -83,6 +83,7 @@ func NewRouterWithOptions(options RouterOptions) http.Handler {
 		group.Post("/references/assignments", api.createReferenceAssignmentHandler)
 		group.Delete("/references/assignments", api.deleteReferenceAssignmentHandler)
 
+		group.Post("/onboarding/bootstrap", api.bootstrapInstallerHandler)
 		group.Get("/users", api.listOnboardingHandler(onboarding.UserKind))
 		group.Post("/users", api.createOnboardingHandler(onboarding.UserKind))
 		group.Get("/users/{uuid}", api.getOnboardingHandler(onboarding.UserKind))

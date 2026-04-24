@@ -33,7 +33,7 @@ services:
       - backend
 
   neo4j:
-    image: neo4j:5.26-community
+    image: neo4j:2026.04.0-community
     environment:
       NEO4J_AUTH: ${NEO4J_AUTH:-neo4j/test-password}
     volumes:

@@ -6,9 +6,11 @@
 package apihttp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -78,8 +80,18 @@ func TestAdminsEndpointCreateListGet(t *testing.T) {
 
 	router := NewRouterWithOptions(RouterOptions{Version: "test", Driver: fixture.Driver})
 
+	bootstrapBody := `{"installerName": "Installer", "installerEmail": "installer@example.test"}`
+	recorder := performJSON(router, http.MethodPost, "/api/v1/onboarding/bootstrap", bootstrapBody)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("bootstrap status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
 	body := `{"userName": "Root Admin", "userEmail": "root@example.test"}`
-	recorder := performJSON(router, http.MethodPost, "/api/v1/admins", body)
+	recorder = performJSONWithHeaders(router, http.MethodPost, "/api/v1/admins", body, map[string]string{
+		"X-SSTPA-User":       "Installer",
+		"X-SSTPA-User-Email": "installer@example.test",
+		"X-SSTPA-Admin":      "true",
+	})
 	if recorder.Code != http.StatusCreated {
 		t.Fatalf("create admin status = %d body=%s", recorder.Code, recorder.Body.String())
 	}
@@ -97,6 +109,48 @@ func TestAdminsEndpointCreateListGet(t *testing.T) {
 	}
 }
 
+func TestBootstrapInstallerEndpointCreatesFirstAdminAndUser(t *testing.T) {
+	fixture := testhelpers.StartNeo4j(t)
+	ctx := context.Background()
+	if err := schema.Bootstrap(ctx, fixture.Driver, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	router := NewRouterWithOptions(RouterOptions{Version: "test", Driver: fixture.Driver})
+	body := `{"installerName": "Installer", "installerEmail": "installer@example.test"}`
+	recorder := performJSON(router, http.MethodPost, "/api/v1/onboarding/bootstrap", body)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("bootstrap status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	var created onboarding.BootstrapResult
+	if err := json.Unmarshal(recorder.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(created.Admin.HID, "ADM__") || !strings.HasPrefix(created.User.HID, "USR__") {
+		t.Fatalf("unexpected bootstrap result: %#v", created)
+	}
+
+	recorder = performJSON(router, http.MethodPost, "/api/v1/onboarding/bootstrap", body)
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("expected duplicate bootstrap 409, got %d", recorder.Code)
+	}
+}
+
+func TestAdminsEndpointRejectsUnauthorizedCreate(t *testing.T) {
+	fixture := testhelpers.StartNeo4j(t)
+	ctx := context.Background()
+	if err := schema.Bootstrap(ctx, fixture.Driver, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	router := NewRouterWithOptions(RouterOptions{Version: "test", Driver: fixture.Driver})
+	body := `{"userName": "Root Admin", "userEmail": "root@example.test"}`
+	recorder := performJSON(router, http.MethodPost, "/api/v1/admins", body)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for missing admin actor, got %d", recorder.Code)
+	}
+}
+
 func TestUsersEndpointRejectsMissingFields(t *testing.T) {
 	router := NewRouterWithOptions(RouterOptions{Version: "test", Driver: fakeConfiguredDriver{}})
 
@@ -104,4 +158,23 @@ func TestUsersEndpointRejectsMissingFields(t *testing.T) {
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for missing email, got %d", recorder.Code)
 	}
+}
+
+func performJSONWithHeaders(handler http.Handler, method string, target string, body string, headers map[string]string) *httptest.ResponseRecorder {
+	var reader *bytes.Reader
+	if body == "" {
+		reader = bytes.NewReader(nil)
+	} else {
+		reader = bytes.NewReader([]byte(body))
+	}
+	request := httptest.NewRequest(method, target, reader)
+	if body != "" {
+		request.Header.Set("Content-Type", "application/json")
+	}
+	for key, value := range headers {
+		request.Header.Set(key, value)
+	}
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	return recorder
 }

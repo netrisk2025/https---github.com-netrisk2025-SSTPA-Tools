@@ -30,6 +30,10 @@ func TestCatalogHasExpectedCoverage(t *testing.T) {
 
 func TestCatalogSpotChecks(t *testing.T) {
 	cases := []Relationship{
+		{Name: "HAS_USER_REGISTRY", From: identity.NodeTypeSSTPATool, To: identity.NodeTypeUserRegistry},
+		{Name: "HAS_ADMIN_REGISTRY", From: identity.NodeTypeSSTPATool, To: identity.NodeTypeAdminRegistry},
+		{Name: "HAS_USER", From: identity.NodeTypeUserRegistry, To: identity.NodeTypeUser},
+		{Name: "HAS_ADMIN", From: identity.NodeTypeAdminRegistry, To: identity.NodeTypeAdmin},
 		{Name: "HAS_SYSTEM", From: identity.NodeTypeCapability, To: identity.NodeTypeSystem},
 		{Name: "HAS_CONNECTION", From: identity.NodeTypeSystem, To: identity.NodeTypeConnection},
 		{Name: "HAS_REQUIREMENT", From: identity.NodeTypePurpose, To: identity.NodeTypeRequirement},

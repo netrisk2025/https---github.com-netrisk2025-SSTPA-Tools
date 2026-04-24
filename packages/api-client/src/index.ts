@@ -139,6 +139,16 @@ export interface CreateOnboardingRequest {
   userEmail: string
 }
 
+export interface BootstrapInstallerRequest {
+  installerName: string
+  installerEmail: string
+}
+
+export interface BootstrapInstallerResponse {
+  admin: OnboardingRecord
+  user: OnboardingRecord
+}
+
 export class APIError extends Error {
   readonly status: number
 
@@ -222,6 +232,10 @@ export class SSTPAClient {
       method: "DELETE",
       body: withActor(payload, this.actor),
     })
+  }
+
+  bootstrapInstaller(payload: BootstrapInstallerRequest) {
+    return this.request<BootstrapInstallerResponse>("/onboarding/bootstrap", { method: "POST", body: payload })
   }
 
   listUsers(params: { page?: number; limit?: number } = {}) {

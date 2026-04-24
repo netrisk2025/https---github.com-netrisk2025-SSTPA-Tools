@@ -100,7 +100,7 @@ describe("SSTPAClient", () => {
     expect(list.items[0].userEmail).toBe("alice@example.test")
   })
 
-  it("creates an admin via createAdmin", async () => {
+  it("bootstraps the installer admin and user", async () => {
     const requests: Request[] = []
     const client = new SSTPAClient({
       baseUrl: "http://localhost:8080/api/v1/",
@@ -108,8 +108,54 @@ describe("SSTPAClient", () => {
         requests.push(new Request(input, init))
         return Response.json(
           {
-            hid: "ADM__1",
-            uuid: "a-1",
+            admin: {
+              hid: "ADM__1",
+              uuid: "a-1",
+              typeName: "Admin",
+              userName: "Installer",
+              userEmail: "installer@example.test",
+              created: "2026-04-24T12:00:00Z",
+              lastTouch: "2026-04-24T12:00:00Z",
+            },
+            user: {
+              hid: "USR__1",
+              uuid: "u-1",
+              typeName: "User",
+              userName: "Installer",
+              userEmail: "installer@example.test",
+              created: "2026-04-24T12:00:00Z",
+              lastTouch: "2026-04-24T12:00:00Z",
+            },
+          },
+          { status: 201 },
+        )
+      },
+    })
+
+    const created = await client.bootstrapInstaller({
+      installerName: "Installer",
+      installerEmail: "installer@example.test",
+    })
+    expect(created.admin.hid).toBe("ADM__1")
+    expect(created.user.hid).toBe("USR__1")
+    expect(requests[0].url).toBe("http://localhost:8080/api/v1/onboarding/bootstrap")
+    await expect(requests[0].json()).resolves.toEqual({
+      installerName: "Installer",
+      installerEmail: "installer@example.test",
+    })
+  })
+
+  it("creates an admin with an admin actor", async () => {
+    const requests: Request[] = []
+    const client = new SSTPAClient({
+      baseUrl: "http://localhost:8080/api/v1/",
+      actor: { name: "Installer", email: "installer@example.test", admin: true },
+      fetchImpl: async (input, init) => {
+        requests.push(new Request(input, init))
+        return Response.json(
+          {
+            hid: "ADM__2",
+            uuid: "a-2",
             typeName: "Admin",
             userName: "Root",
             userEmail: "root@example.test",
@@ -122,7 +168,10 @@ describe("SSTPAClient", () => {
     })
 
     const created = await client.createAdmin({ userName: "Root", userEmail: "root@example.test" })
-    expect(created.hid).toBe("ADM__1")
+    expect(created.hid).toBe("ADM__2")
     expect(requests[0].url).toBe("http://localhost:8080/api/v1/admins")
+    expect(requests[0].headers.get("X-SSTPA-User")).toBe("Installer")
+    expect(requests[0].headers.get("X-SSTPA-User-Email")).toBe("installer@example.test")
+    expect(requests[0].headers.get("X-SSTPA-Admin")).toBe("true")
   })
 })

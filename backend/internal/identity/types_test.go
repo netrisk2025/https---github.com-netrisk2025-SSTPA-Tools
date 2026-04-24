@@ -33,9 +33,9 @@ func TestTypeIDUnknown(t *testing.T) {
 }
 
 func TestAllTypesCountCoversCoreAndToolData(t *testing.T) {
-	// 27 Core Data Model types (SRS §1.3.6.1) + 2 Tool Data types (User, Admin per §1.4).
-	if got := len(AllTypes()); got != 29 {
-		t.Fatalf("expected 29 node types (27 Core + 2 Tool Data), got %d", got)
+	// 27 Core Data Model types (SRS §1.3.6.1) + 5 Tool Data types (SRS §1.4).
+	if got := len(AllTypes()); got != 32 {
+		t.Fatalf("expected 32 node types (27 Core + 5 Tool Data), got %d", got)
 	}
 }
 
@@ -49,10 +49,13 @@ func TestIsValidTypeID(t *testing.T) {
 	}
 }
 
-func TestUserAndAdminTypeIDs(t *testing.T) {
+func TestToolDataTypeIDs(t *testing.T) {
 	cases := map[NodeType]string{
-		NodeTypeUser:  "USR",
-		NodeTypeAdmin: "ADM",
+		NodeTypeSSTPATool:     "SST",
+		NodeTypeUserRegistry:  "URG",
+		NodeTypeAdminRegistry: "ARG",
+		NodeTypeUser:          "USR",
+		NodeTypeAdmin:         "ADM",
 	}
 
 	for nodeType, want := range cases {
