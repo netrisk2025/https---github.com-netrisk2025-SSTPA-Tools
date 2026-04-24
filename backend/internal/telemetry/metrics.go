@@ -62,6 +62,10 @@ func (m *Metrics) Handler() http.Handler {
 	return promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{Registry: m.registry})
 }
 
+// RecordHTTPRequest records one completed HTTP request. The route argument MUST
+// be a bounded-cardinality router pattern (e.g. "/api/v1/nodes/{hid}"), never a
+// concrete URL path — the chi route pattern is the canonical source and is
+// produced by the telemetry.Middleware wrapper in middleware.go.
 func (m *Metrics) RecordHTTPRequest(method string, route string, status int, durationSeconds float64) {
 	labels := prometheus.Labels{
 		"method": method,
