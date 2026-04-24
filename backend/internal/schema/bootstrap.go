@@ -12,7 +12,6 @@ import (
 )
 
 var bootstrapStatements = []string{
-	"CREATE INDEX node_hid_index IF NOT EXISTS FOR (n:SSTPANode) ON (n.HID)",
 	"CREATE INDEX node_uuid_index IF NOT EXISTS FOR (n:SSTPANode) ON (n.uuid)",
 	"CREATE INDEX node_name_index IF NOT EXISTS FOR (n:SSTPANode) ON (n.Name)",
 	"CREATE INDEX node_type_index IF NOT EXISTS FOR (n:SSTPANode) ON (n.TypeName)",
@@ -22,6 +21,7 @@ var bootstrapStatements = []string{
 	"CREATE INDEX admin_uuid_index IF NOT EXISTS FOR (a:Admin) ON (a.uuid)",
 	"CREATE INDEX mailbox_id_index IF NOT EXISTS FOR (m:Mailbox) ON (m.MailboxID)",
 	"CREATE INDEX message_uuid_index IF NOT EXISTS FOR (m:Message) ON (m.uuid)",
+	"CREATE CONSTRAINT node_hid_unique IF NOT EXISTS FOR (n:SSTPANode) REQUIRE n.HID IS UNIQUE",
 	"MERGE (:Users)",
 	"MERGE (:Admins)",
 }

@@ -19,13 +19,13 @@ func TestStatementsIncludeSRSIndexes(t *testing.T) {
 	joined := strings.Join(Statements(), "\n")
 
 	for _, want := range []string{
-		"node_hid_index",
 		"node_uuid_index",
 		"node_name_index",
 		"node_type_index",
 		"user_email_index",
 		"mailbox_id_index",
 		"message_uuid_index",
+		"node_hid_unique",
 	} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("expected bootstrap statements to include %q", want)
