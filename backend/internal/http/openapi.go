@@ -161,6 +161,56 @@ paths:
     delete:
       responses:
         "200": { description: Transactional reference assignment removal. }
+  /users:
+    get:
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+      responses:
+        "200": { description: Paginated registered users. }
+    post:
+      responses:
+        "201": { description: Newly registered user. }
+        "409": { description: User email already registered. }
+  /users/{uuid}:
+    get:
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Registered user. }
+        "404": { description: User not found. }
+  /admins:
+    get:
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+      responses:
+        "200": { description: Paginated registered admins. }
+    post:
+      responses:
+        "201": { description: Newly registered admin. }
+        "409": { description: Admin email already registered. }
+  /admins/{uuid}:
+    get:
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Registered admin. }
+        "404": { description: Admin not found. }
 components:
   schemas:
     CommitReport:

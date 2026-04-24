@@ -278,3 +278,16 @@ CREATE (:ReferenceItem:AttackTechnique {
 type fakeConfiguredDriver struct {
 	neo4j.DriverWithContext
 }
+
+func TestOpenAPIIncludesUserAndAdminPaths(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/openapi.yaml", nil)
+	recorder := httptest.NewRecorder()
+
+	NewRouter("test").ServeHTTP(recorder, request)
+
+	for _, want := range []string{"/users:", "/users/{uuid}:", "/admins:", "/admins/{uuid}:"} {
+		if !strings.Contains(recorder.Body.String(), want) {
+			t.Fatalf("expected OpenAPI spec to declare %q", want)
+		}
+	}
+}
