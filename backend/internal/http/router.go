@@ -42,6 +42,10 @@ func NewRouterWithOptions(options RouterOptions) http.Handler {
 	router.Use(chimw.Recoverer)
 
 	router.Get("/healthz", healthHandler(api.version))
+	// /metrics is intentionally unauthenticated because the deployment
+	// contract (SRS §2.2 diagram) puts Caddy in front of the backend and
+	// the backend bolt/HTTP ports stay on the private Docker network.
+	// The Caddyfile must not expose /metrics externally.
 	if options.Metrics != nil {
 		router.Handle("/metrics", options.Metrics.Handler())
 	}

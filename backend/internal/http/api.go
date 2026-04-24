@@ -15,10 +15,8 @@ import (
 	"time"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
-	"go.opentelemetry.io/otel/trace"
 
 	"sstpa-tool/backend/internal/metadata"
-	"sstpa-tool/backend/internal/telemetry"
 )
 
 const (
@@ -31,8 +29,6 @@ type api struct {
 	driver       neo4j.DriverWithContext
 	databaseName string
 	now          func() time.Time
-	tracer       trace.Tracer
-	metrics      *telemetry.Metrics
 }
 
 type apiError struct {
@@ -63,8 +59,6 @@ func newAPI(options RouterOptions) api {
 		driver:       options.Driver,
 		databaseName: options.DatabaseName,
 		now:          func() time.Time { return time.Now().UTC() },
-		tracer:       options.Tracer,
-		metrics:      options.Metrics,
 	}
 }
 

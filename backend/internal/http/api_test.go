@@ -308,3 +308,13 @@ func TestRouterServesMetricsEndpoint(t *testing.T) {
 		t.Fatalf("expected sstpa metrics in body, got:\n%s", recorder.Body.String())
 	}
 }
+
+func TestRouterOmitsMetricsEndpointWhenUnconfigured(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	NewRouter("test").ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 when Metrics is nil, got %d", recorder.Code)
+	}
+}
