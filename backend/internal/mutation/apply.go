@@ -13,12 +13,20 @@ import (
 	"time"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"sstpa-tool/backend/internal/graph"
 	"sstpa-tool/backend/internal/identity"
 	"sstpa-tool/backend/internal/messaging"
 	"sstpa-tool/backend/internal/metadata"
 )
+
+var mutationTracer trace.Tracer
+
+// SetTracer installs a tracer used to open an sstpa.mutation.apply span around
+// every Apply call's write transaction. Passing nil disables tracing.
+func SetTracer(tracer trace.Tracer) { mutationTracer = tracer }
 
 func Apply(ctx context.Context, driver neo4j.DriverWithContext, options ApplyOptions, plan Plan) (CommitReport, error) {
 	if err := plan.Validate(); err != nil {
@@ -41,7 +49,14 @@ func Apply(ctx context.Context, driver neo4j.DriverWithContext, options ApplyOpt
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: options.DatabaseName})
 	defer session.Close(ctx)
 
-	result, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+	ctxForWrite := ctx
+	var span trace.Span
+	if mutationTracer != nil {
+		ctxForWrite, span = mutationTracer.Start(ctx, "sstpa.mutation.apply")
+		defer span.End()
+	}
+
+	result, err := session.ExecuteWrite(ctxForWrite, func(tx neo4j.ManagedTransaction) (any, error) {
 		before, err := readSnapshot(ctx, tx, preExistingHIDs(plan))
 		if err != nil {
 			return CommitReport{}, err
@@ -75,6 +90,23 @@ func Apply(ctx context.Context, driver neo4j.DriverWithContext, options ApplyOpt
 		report.MessagesGenerated = len(recipients)
 		return report, nil
 	})
+
+	if span != nil {
+		span.SetAttributes(
+			attribute.String("sstpa.commit_id", commitID),
+			attribute.Int("sstpa.operations_count", len(plan.Operations)),
+			attribute.String("sstpa.actor_email", options.Actor.Email),
+		)
+		if err != nil {
+			span.RecordError(err)
+		} else if report, ok := result.(CommitReport); ok {
+			span.SetAttributes(
+				attribute.Int("sstpa.messages_generated", report.MessagesGenerated),
+				attribute.Int("sstpa.nodes_changed", len(report.NodesChanged)),
+			)
+		}
+	}
+
 	if err != nil {
 		return CommitReport{}, err
 	}

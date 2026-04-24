@@ -11,10 +11,13 @@ import (
 	"time"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
 	"sstpa-tool/backend/internal/identity"
 	"sstpa-tool/backend/internal/metadata"
 	"sstpa-tool/backend/internal/schema"
+	"sstpa-tool/backend/internal/telemetry"
 	"sstpa-tool/backend/internal/testhelpers"
 )
 
@@ -199,4 +202,62 @@ func TestApplyRejectsDuplicateRelationship(t *testing.T) {
 
 func fixedTime() time.Time {
 	return time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC)
+}
+
+func TestApplyRecordsTraceSpan(t *testing.T) {
+	fixture := testhelpers.StartNeo4j(t)
+	ctx := context.Background()
+	if err := schema.Bootstrap(ctx, fixture.Driver, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	recorder := tracetest.NewSpanRecorder()
+	provider := telemetry.NewTestTracerProvider(recorder)
+	SetTracer(provider.Tracer("mutation-test"))
+	t.Cleanup(func() { SetTracer(nil) })
+
+	actor := metadata.Actor{Name: "Alice", Email: "alice@example.test"}
+	plan := Plan{Operations: []Operation{{
+		Kind:       OperationCreateNode,
+		NodeType:   identity.NodeTypeCapability,
+		HID:        "CAP__1",
+		UUID:       "00000000-0000-4000-8000-000000000900",
+		Properties: map[string]any{"Name": "Root"},
+	}}}
+
+	if _, err := Apply(ctx, fixture.Driver, ApplyOptions{Actor: actor, VersionID: "v1"}, plan); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	spans := recorder.Ended()
+	if len(spans) == 0 {
+		t.Fatalf("expected a mutation span, got none")
+	}
+	found := false
+	for _, span := range spans {
+		if span.Name() == "sstpa.mutation.apply" {
+			found = true
+			attrs := span.Attributes()
+			hasCommit := false
+			for _, a := range attrs {
+				if string(a.Key) == "sstpa.commit_id" && a.Value.AsString() != "" {
+					hasCommit = true
+				}
+			}
+			if !hasCommit {
+				t.Fatalf("span missing sstpa.commit_id attribute")
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("sstpa.mutation.apply span not found; names: %v", spanNames(spans))
+	}
+}
+
+func spanNames(spans []sdktrace.ReadOnlySpan) []string {
+	names := make([]string, 0, len(spans))
+	for _, span := range spans {
+		names = append(names, span.Name())
+	}
+	return names
 }
