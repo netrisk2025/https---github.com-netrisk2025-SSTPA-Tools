@@ -63,7 +63,10 @@ func TestBootstrapMaterializesContainers(t *testing.T) {
 	ctx := context.Background()
 
 	if err := Bootstrap(ctx, fixture.Driver, ""); err != nil {
-		t.Fatalf("bootstrap: %v", err)
+		t.Fatalf("first bootstrap: %v", err)
+	}
+	if err := Bootstrap(ctx, fixture.Driver, ""); err != nil {
+		t.Fatalf("second bootstrap: %v", err)
 	}
 
 	session := fixture.Driver.NewSession(ctx, neo4j.SessionConfig{})
@@ -79,9 +82,16 @@ func TestBootstrapMaterializesContainers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("single %s: %v", label, err)
 		}
-		count, _ := record.Get("c")
-		if count.(int64) != 1 {
-			t.Fatalf("expected exactly one :%s node, got %v", label, count)
+		countValue, hasCount := record.Get("c")
+		if !hasCount {
+			t.Fatalf("missing 'c' column for :%s", label)
+		}
+		count, ok := countValue.(int64)
+		if !ok {
+			t.Fatalf("expected int64 count for :%s, got %T", label, countValue)
+		}
+		if count != 1 {
+			t.Fatalf("expected exactly one :%s node after two bootstraps, got %d", label, count)
 		}
 	}
 }
