@@ -37,3 +37,6 @@ neo4j-data/
 prometheus-data/
 grafana-data/
 tempo-data/
+
+# Git worktrees
+.worktrees/
