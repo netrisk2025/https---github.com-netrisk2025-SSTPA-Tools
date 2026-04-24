@@ -18,10 +18,12 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 type TracerProvider struct {
-	provider *sdktrace.TracerProvider
+	provider trace.TracerProvider
+	sdk      *sdktrace.TracerProvider
 	mu       sync.Mutex
 	closed   bool
 }
@@ -34,8 +36,7 @@ type TracerOptions struct {
 
 func NewTracerProvider(ctx context.Context, options TracerOptions) (*TracerProvider, error) {
 	if !options.Enabled {
-		provider := sdktrace.NewTracerProvider()
-		return &TracerProvider{provider: provider}, nil
+		return &TracerProvider{provider: noop.NewTracerProvider()}, nil
 	}
 
 	endpoint, path, secure, err := parseOTLPEndpoint(options.OTLPEndpoint)
@@ -58,16 +59,16 @@ func NewTracerProvider(ctx context.Context, options TracerOptions) (*TracerProvi
 		return nil, err
 	}
 
-	provider := sdktrace.NewTracerProvider(
+	sdkProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(buildResource(options.ServiceName)),
 	)
-	return &TracerProvider{provider: provider}, nil
+	return &TracerProvider{provider: sdkProvider, sdk: sdkProvider}, nil
 }
 
 func NewTestTracerProvider(recorder *tracetest.SpanRecorder) *TracerProvider {
-	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
-	return &TracerProvider{provider: provider}
+	sdkProvider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	return &TracerProvider{provider: sdkProvider, sdk: sdkProvider}
 }
 
 func (p *TracerProvider) Tracer(name string) trace.Tracer {
@@ -80,8 +81,15 @@ func (p *TracerProvider) Shutdown(ctx context.Context) error {
 	if p.closed {
 		return nil
 	}
+	if p.sdk == nil {
+		p.closed = true
+		return nil
+	}
+	if err := p.sdk.Shutdown(ctx); err != nil {
+		return err
+	}
 	p.closed = true
-	return p.provider.Shutdown(ctx)
+	return nil
 }
 
 func parseOTLPEndpoint(raw string) (string, string, bool, error) {

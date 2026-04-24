@@ -40,3 +40,22 @@ func TestShutdownIsIdempotent(t *testing.T) {
 		t.Fatalf("second shutdown: %v", err)
 	}
 }
+
+func TestDisabledProviderShutdownIsNoop(t *testing.T) {
+	provider, err := NewTracerProvider(context.Background(), TracerOptions{Enabled: false})
+	if err != nil {
+		t.Fatalf("disabled ctor: %v", err)
+	}
+	if err := provider.Shutdown(context.Background()); err != nil {
+		t.Fatalf("first shutdown: %v", err)
+	}
+	if err := provider.Shutdown(context.Background()); err != nil {
+		t.Fatalf("second shutdown: %v", err)
+	}
+
+	_, span := provider.Tracer("disabled").Start(context.Background(), "ignored")
+	span.End()
+	if span.SpanContext().IsSampled() {
+		t.Fatal("disabled provider span should not be sampled")
+	}
+}
