@@ -35,6 +35,8 @@ const (
 	NodeTypeHazard            NodeType = "Hazard"
 	NodeTypeLoss              NodeType = "Loss"
 	NodeTypeAttack            NodeType = "Attack"
+	NodeTypeUser              NodeType = "User"
+	NodeTypeAdmin             NodeType = "Admin"
 )
 
 var typeIDs = map[NodeType]string{
@@ -65,6 +67,8 @@ var typeIDs = map[NodeType]string{
 	NodeTypeHazard:            "HAZ",
 	NodeTypeLoss:              "LOS",
 	NodeTypeAttack:            "ATK",
+	NodeTypeUser:              "USR",
+	NodeTypeAdmin:             "ADM",
 }
 
 var orderedTypes = []NodeType{
@@ -95,6 +99,8 @@ var orderedTypes = []NodeType{
 	NodeTypeHazard,
 	NodeTypeLoss,
 	NodeTypeAttack,
+	NodeTypeUser,
+	NodeTypeAdmin,
 }
 
 func TypeID(nodeType NodeType) (string, bool) {
