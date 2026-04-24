@@ -124,6 +124,21 @@ export interface ReferenceAssignmentMutationResponse {
   commitReport: CommitReport
 }
 
+export interface OnboardingRecord {
+  hid: string
+  uuid: string
+  typeName: string
+  userName: string
+  userEmail: string
+  created: string
+  lastTouch: string
+}
+
+export interface CreateOnboardingRequest {
+  userName: string
+  userEmail: string
+}
+
 export class APIError extends Error {
   readonly status: number
 
@@ -207,6 +222,30 @@ export class SSTPAClient {
       method: "DELETE",
       body: withActor(payload, this.actor),
     })
+  }
+
+  listUsers(params: { page?: number; limit?: number } = {}) {
+    return this.request<ListResponse<OnboardingRecord>>(`/users${queryString(params)}`)
+  }
+
+  getUser(uuid: string) {
+    return this.request<OnboardingRecord>(`/users/${encodeURIComponent(uuid)}`)
+  }
+
+  createUser(payload: CreateOnboardingRequest) {
+    return this.request<OnboardingRecord>("/users", { method: "POST", body: payload })
+  }
+
+  listAdmins(params: { page?: number; limit?: number } = {}) {
+    return this.request<ListResponse<OnboardingRecord>>(`/admins${queryString(params)}`)
+  }
+
+  getAdmin(uuid: string) {
+    return this.request<OnboardingRecord>(`/admins/${encodeURIComponent(uuid)}`)
+  }
+
+  createAdmin(payload: CreateOnboardingRequest) {
+    return this.request<OnboardingRecord>("/admins", { method: "POST", body: payload })
   }
 
   private async request<TResponse>(path: string, options: { method?: string; body?: unknown } = {}) {

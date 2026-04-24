@@ -46,4 +46,83 @@ describe("SSTPAClient", () => {
       client.validateRelationship({ relationshipName: "BAD", fromType: "System", toType: "System" }),
     ).rejects.toEqual(new APIError(400, "invalid relationship"))
   })
+
+  it("creates a user and lists registered users", async () => {
+    const requests: Request[] = []
+    const client = new SSTPAClient({
+      baseUrl: "http://localhost:8080/api/v1/",
+      fetchImpl: async (input, init) => {
+        requests.push(new Request(input, init))
+        if (init?.method === "POST") {
+          return Response.json(
+            {
+              hid: "USR__1",
+              uuid: "u-1",
+              typeName: "User",
+              userName: "Alice",
+              userEmail: "alice@example.test",
+              created: "2026-04-24T12:00:00Z",
+              lastTouch: "2026-04-24T12:00:00Z",
+            },
+            { status: 201 },
+          )
+        }
+        return Response.json({
+          items: [
+            {
+              hid: "USR__1",
+              uuid: "u-1",
+              typeName: "User",
+              userName: "Alice",
+              userEmail: "alice@example.test",
+              created: "2026-04-24T12:00:00Z",
+              lastTouch: "2026-04-24T12:00:00Z",
+            },
+          ],
+          page: 1,
+          limit: 50,
+          total: 1,
+        })
+      },
+    })
+
+    const created = await client.createUser({ userName: "Alice", userEmail: "alice@example.test" })
+    expect(created.hid).toBe("USR__1")
+    expect(requests[0].method).toBe("POST")
+    expect(requests[0].url).toBe("http://localhost:8080/api/v1/users")
+    await expect(requests[0].json()).resolves.toEqual({
+      userName: "Alice",
+      userEmail: "alice@example.test",
+    })
+
+    const list = await client.listUsers()
+    expect(list.total).toBe(1)
+    expect(list.items[0].userEmail).toBe("alice@example.test")
+  })
+
+  it("creates an admin via createAdmin", async () => {
+    const requests: Request[] = []
+    const client = new SSTPAClient({
+      baseUrl: "http://localhost:8080/api/v1/",
+      fetchImpl: async (input, init) => {
+        requests.push(new Request(input, init))
+        return Response.json(
+          {
+            hid: "ADM__1",
+            uuid: "a-1",
+            typeName: "Admin",
+            userName: "Root",
+            userEmail: "root@example.test",
+            created: "2026-04-24T12:00:00Z",
+            lastTouch: "2026-04-24T12:00:00Z",
+          },
+          { status: 201 },
+        )
+      },
+    })
+
+    const created = await client.createAdmin({ userName: "Root", userEmail: "root@example.test" })
+    expect(created.hid).toBe("ADM__1")
+    expect(requests[0].url).toBe("http://localhost:8080/api/v1/admins")
+  })
 })
