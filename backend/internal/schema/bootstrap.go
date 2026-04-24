@@ -17,8 +17,13 @@ var bootstrapStatements = []string{
 	"CREATE INDEX node_name_index IF NOT EXISTS FOR (n:SSTPANode) ON (n.Name)",
 	"CREATE INDEX node_type_index IF NOT EXISTS FOR (n:SSTPANode) ON (n.TypeName)",
 	"CREATE INDEX user_email_index IF NOT EXISTS FOR (u:User) ON (u.UserEmail)",
+	"CREATE INDEX user_uuid_index IF NOT EXISTS FOR (u:User) ON (u.uuid)",
+	"CREATE INDEX admin_email_index IF NOT EXISTS FOR (a:Admin) ON (a.UserEmail)",
+	"CREATE INDEX admin_uuid_index IF NOT EXISTS FOR (a:Admin) ON (a.uuid)",
 	"CREATE INDEX mailbox_id_index IF NOT EXISTS FOR (m:Mailbox) ON (m.MailboxID)",
 	"CREATE INDEX message_uuid_index IF NOT EXISTS FOR (m:Message) ON (m.uuid)",
+	"MERGE (:Users)",
+	"MERGE (:Admins)",
 }
 
 func Statements() []string {
