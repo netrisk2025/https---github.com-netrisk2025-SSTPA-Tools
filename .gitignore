@@ -16,6 +16,11 @@ coverage/
 # Go
 bin/
 *.test
+# Go build outputs land at the package directory by default; protect the ones
+# produced by `go build ./cmd/api` / `./cmd/refstage`.
+/backend/api
+/tools/reference-pipeline/refstage
+/tools/devtools/copyright/apply
 
 # Rust / Tauri
 target/
