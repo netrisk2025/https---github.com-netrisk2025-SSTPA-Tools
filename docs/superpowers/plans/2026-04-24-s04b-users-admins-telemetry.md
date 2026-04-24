@@ -2820,3 +2820,9 @@ EOF
 - Grafana dashboards and alerting rules — owned by S12.
 - Bolt driver instrumentation beyond the mutation-layer span — future work when Grafana dashboards need it.
 - Replacing the MERGE-on-email behavior inside `backend/internal/messaging/model.go`. That path remains a messaging-only upsert; registered Users keep the `:SSTPANode` label and container edge so GET /users filters on that.
+
+---
+
+## Verify Evidence
+
+`make verify` green at commit `c15618e29fad5380144fefe67f2a3df180fce330` on branch `slice/04b-users-admins-telemetry` — all targets (copyright-check, sbom-check, backend-test, reference-test, frontend-lint, frontend-typecheck, frontend-test, compose-config) exited successfully. Testcontainers Neo4j fixtures exercised via Docker 29.2.1; 12 backend packages, 3 reference-pipeline packages, and 2 TypeScript workspaces all green.
