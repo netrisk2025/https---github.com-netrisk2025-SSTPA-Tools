@@ -7,6 +7,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -19,6 +20,10 @@ type Config struct {
 	Neo4jPassword     string
 	Neo4jDatabase     string
 	Neo4jTimeout      time.Duration
+	OTLPEndpoint      string
+	ServiceName       string
+	MetricsEnabled    bool
+	TracingEnabled    bool
 }
 
 func Load() Config {
@@ -31,6 +36,10 @@ func Load() Config {
 		Neo4jPassword:     stringFromEnv("SSTPA_NEO4J_PASSWORD", ""),
 		Neo4jDatabase:     stringFromEnv("SSTPA_NEO4J_DATABASE", "neo4j"),
 		Neo4jTimeout:      durationFromEnv("SSTPA_NEO4J_TIMEOUT", 10*time.Second),
+		OTLPEndpoint:      stringFromEnv("SSTPA_OTLP_ENDPOINT", "http://otel-collector:4318"),
+		ServiceName:       stringFromEnv("SSTPA_SERVICE_NAME", "sstpa-backend"),
+		MetricsEnabled:    boolFromEnv("SSTPA_TELEMETRY_METRICS", true),
+		TracingEnabled:    boolFromEnv("SSTPA_TELEMETRY_TRACING", true),
 	}
 }
 
@@ -39,7 +48,6 @@ func stringFromEnv(key string, fallback string) string {
 	if value == "" {
 		return fallback
 	}
-
 	return value
 }
 
@@ -48,11 +56,21 @@ func durationFromEnv(key string, fallback time.Duration) time.Duration {
 	if value == "" {
 		return fallback
 	}
-
 	parsed, err := time.ParseDuration(value)
 	if err != nil {
 		return fallback
 	}
+	return parsed
+}
 
+func boolFromEnv(key string, fallback bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fallback
+	}
 	return parsed
 }
