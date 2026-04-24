@@ -1,0 +1,39 @@
+# OS and editors
+.DS_Store
+Thumbs.db
+
+# Secrets and env
+.env
+.env.*
+!.env.example
+
+# Node and frontend
+node_modules/
+dist/
+coverage/
+.vite/
+
+# Go
+bin/
+*.test
+
+# Rust / Tauri
+target/
+src-tauri/target/
+
+# Logs
+*.log
+
+# Reference data payloads
+reference-data/raw/*
+!reference-data/raw/.gitignore
+reference-data/staged/*
+!reference-data/staged/.gitignore
+reference-data/normalized/*
+!reference-data/normalized/.gitignore
+
+# Local runtime data
+neo4j-data/
+prometheus-data/
+grafana-data/
+tempo-data/

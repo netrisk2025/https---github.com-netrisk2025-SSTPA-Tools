@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@sstpa/addon-sdk": ["packages/addon-sdk/src/index.ts"],
+      "@sstpa/domain": ["packages/domain/src/index.ts"],
+      "@sstpa/ui": ["packages/ui/src/index.ts"],
+      "@sstpa/navigator-tool": ["addons/navigator/src/index.ts"],
+      "@sstpa/requirements-tool": ["addons/requirements/src/index.ts"],
+      "@sstpa/message-center-tool": ["addons/message-center/src/index.ts"]
+    }
+  }
+}

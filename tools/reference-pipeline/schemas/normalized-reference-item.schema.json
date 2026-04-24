@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sstpa.local/schemas/normalized-reference-item.schema.json",
+  "title": "NormalizedReferenceItem",
+  "type": "object",
+  "required": [
+    "frameworkName",
+    "frameworkVersion",
+    "externalId",
+    "externalType",
+    "name",
+    "sourceUri"
+  ],
+  "properties": {
+    "frameworkName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "frameworkVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "externalId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "externalType": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "shortDescription": {
+      "type": "string"
+    },
+    "longDescription": {
+      "type": "string"
+    },
+    "sourceUri": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

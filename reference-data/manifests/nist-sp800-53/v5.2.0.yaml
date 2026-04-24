@@ -1,0 +1,42 @@
+schemaVersion: 1.0.0
+framework: nist-sp800-53
+version: 5.2.0
+stage: staged
+generatedAt: "2026-04-23T03:12:14Z"
+sourceTitle: Electronic (OSCAL) Version of NIST SP 800-53 Rev 5.2.0 Controls and SP 800-53A Rev 5.2.0 Assessment Procedures
+sourceLastModified: "2025-08-26T14:33:16.00000-00:00"
+rawArtifacts:
+    - path: reference-data/raw/nist-sp800-53/v5.2.0/NIST_SP-800-53_rev5_catalog.json
+      role: catalog
+      sha256: 1645df6a370dcb931db2e2d5d70c2f77bc89c38499a416c23a70eb2c0e595bcc
+      bytes: 10441264
+    - path: reference-data/raw/nist-sp800-53/v5.2.0/LICENSE.md
+      role: license
+      sha256: 9f0ddd1ed71f691bb483965a7c46e1315ab6cc28dac0426d4c3d27108aafde13
+      bytes: 2106
+stagedArtifacts:
+    - path: reference-data/staged/nist-sp800-53/v5.2.0/metadata.json
+      role: metadata
+      sha256: 06ff3a396e9ea5bd502ce329e0d0d7259a46c482ec579e1ed2fbb6405abca415
+      bytes: 397
+      recordCount: 1
+    - path: reference-data/staged/nist-sp800-53/v5.2.0/collections.ndjson
+      role: collections
+      sha256: 7002e1c17311b0196fa6b6d8ab6fa9c6915af108c2736c7697b56a815efbad8d
+      bytes: 197
+      recordCount: 1
+    - path: reference-data/staged/nist-sp800-53/v5.2.0/items.ndjson
+      role: items
+      sha256: 1f2d62047a96b893d625b7abccb3ce53a95ef8139e1ca7b563b849eef0917aa0
+      bytes: 629641
+      recordCount: 1216
+    - path: reference-data/staged/nist-sp800-53/v5.2.0/edge-candidates.ndjson
+      role: edge-candidates
+      sha256: 9c04064c483bae1d7ec7e68166460751aebb7561b1b393ec44596b3ec4d2ba89
+      bytes: 893577
+      recordCount: 5623
+    - path: reference-data/staged/nist-sp800-53/v5.2.0/citations.ndjson
+      role: citations
+      sha256: 229208a1a3874320bda3a1415290c23391dab3ef51d2da9988fa39782fe94dd2
+      bytes: 120035
+      recordCount: 838

@@ -1,0 +1,108 @@
+services:
+  caddy:
+    image: caddy:2.9
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - backend
+      - grafana
+    networks:
+      - edge
+      - backend
+
+  backend:
+    build:
+      context: ../../backend
+    environment:
+      SSTPA_API_ADDR: ":8080"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+    expose:
+      - "8080"
+    depends_on:
+      - neo4j
+      - otel-collector
+    networks:
+      - backend
+
+  neo4j:
+    image: neo4j:5.26-community
+    environment:
+      NEO4J_AUTH: ${NEO4J_AUTH:-neo4j/test-password}
+    volumes:
+      - neo4j-data:/data
+    expose:
+      - "7687"
+      - "7474"
+    networks:
+      - backend
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.122.1
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
+    expose:
+      - "4317"
+      - "4318"
+    depends_on:
+      - tempo
+    networks:
+      - backend
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    expose:
+      - "9090"
+    networks:
+      - backend
+
+  tempo:
+    image: grafana/tempo:2.7.1
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    expose:
+      - "3200"
+      - "4318"
+    networks:
+      - backend
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SERVER_ROOT_URL: https://localhost/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - tempo
+    expose:
+      - "3000"
+    networks:
+      - backend
+
+networks:
+  edge:
+  backend:
+
+volumes:
+  caddy-data:
+  caddy-config:
+  neo4j-data:
+  prometheus-data:
+  grafana-data:
+  tempo-data:

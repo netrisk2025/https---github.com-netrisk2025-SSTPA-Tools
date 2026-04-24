@@ -1,0 +1,15 @@
+root = true
+
+[*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml,go,rs}]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[Makefile]
+indent_style = tab
+
+[*.go]
+indent_style = tab

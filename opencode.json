@@ -1,0 +1,67 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "share": "disabled",
+  "default_agent": "build",
+  "instructions": [
+    "docs/architecture/repo-layout.md",
+    "docs/architecture/addon-boundaries.md",
+    "docs/architecture/reference-pipeline.md",
+    "docs/verification/README.md"
+  ],
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "git commit *": "ask",
+      "git push *": "ask",
+      "git push --force*": "deny",
+      "git push * --force*": "deny",
+      "git reset *": "ask",
+      "git restore *": "ask",
+      "git checkout --*": "ask",
+      "git rebase *": "ask",
+      "rm *": "ask",
+      "docker compose down*": "ask"
+    }
+  },
+  "watcher": {
+    "ignore": [
+      ".git/**",
+      "node_modules/**",
+      "dist/**",
+      "coverage/**",
+      ".vite/**",
+      "target/**",
+      "src-tauri/target/**",
+      "reference-data/raw/**",
+      "reference-data/staged/**",
+      "reference-data/normalized/**",
+      "*.log"
+    ]
+  },
+  "agent": {
+    "build": {
+      "permission": {
+        "task": {
+          "*": "deny",
+          "explore": "allow",
+          "general": "allow",
+          "verification-runner": "allow",
+          "srs-auditor": "allow",
+          "traceability-auditor": "allow",
+          "reference-pipeline-auditor": "allow"
+        }
+      }
+    },
+    "plan": {
+      "permission": {
+        "task": {
+          "*": "deny",
+          "explore": "allow",
+          "srs-auditor": "allow",
+          "traceability-auditor": "allow",
+          "reference-pipeline-auditor": "allow"
+        }
+      }
+    }
+  }
+}

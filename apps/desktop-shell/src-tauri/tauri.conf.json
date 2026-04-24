@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SSTPA Tools",
+  "version": "0.1.0",
+  "identifier": "com.sstpa.tools",
+  "build": {
+    "beforeDevCommand": "npm run dev --workspace @sstpa/desktop-shell",
+    "beforeBuildCommand": "npm run build --workspace @sstpa/desktop-shell",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "SSTPA Tools",
+        "width": 1440,
+        "height": 960,
+        "resizable": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all"
+  }
+}
