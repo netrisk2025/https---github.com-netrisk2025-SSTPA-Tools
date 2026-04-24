@@ -2,6 +2,23 @@
 
 | Req ID | Requirement Summary | Verification Type | Automated | Command | Test Location | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| DRAFT-001 | Relationship naming and label rules | unit + contract | Planned | `make backend-test` | `backend/...` | Add once graph model helpers exist |
-| DRAFT-002 | Identity and ownership metadata | unit + integration | Planned | `make backend-test` | `backend/...` | Add after node creation logic exists |
-| DRAFT-003 | Owner notification in mutation transaction | integration | Planned | `make backend-test` | `backend/...` | Needs transactional mutation layer |
+| DRAFT-001 | Relationship naming and label rules | unit + contract | Yes | `make backend-test` | `backend/internal/graph` | Covers singular labels and `UPPERCASE_SNAKE_CASE` relationship names |
+| DRAFT-002 | Identity and ownership metadata | unit + integration | Partial | `make backend-test` | `backend/internal/identity`, `backend/internal/metadata` | Helpers covered; mutation-layer enforcement still planned |
+| DRAFT-003 | Owner notification in mutation transaction | integration | Yes | `make backend-test` | `backend/internal/mutation` | Test verifies non-owner update creates a mailbox message in the same transaction |
+| SSTPA-COPY-001 | Required copyright statement in source files | static check | Yes | `make copyright-check` | `tools/devtools/copyright` | Covers `.go`, `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, and `.rs` source files under implementation workspaces |
+| SSTPA-VERIFY-001 | Standard automated verification gate | command suite | Yes | `make verify` | `Makefile` | Runs copyright, backend tests, reference tests, frontend lint/typecheck/test, and Docker Compose config |
+| SSTPA-HID-001 | HID format and parser | unit | Yes | `make backend-test` | `backend/internal/identity` | Validates SRS type IDs, dotted index shape, capability empty index, and non-negative sequence |
+| SSTPA-METADATA-001 | Common identity and ownership metadata | unit | Yes | `make backend-test` | `backend/internal/metadata` | Validates required property names, creation actor assignment, timestamps, and `"Null"` defaults |
+| SSTPA-SCHEMA-INDEX-001 | Neo4j index bootstrap statements | unit | Yes | `make backend-test` | `backend/internal/schema` | Verifies idempotent SRS index statements |
+| SSTPA-VERIFY-NEO4J-001 | Reusable Neo4j integration fixture | integration | Yes | `make backend-test` | `backend/internal/testhelpers` | Starts Neo4j Community with Testcontainers and runs a Bolt smoke query, skipping when Docker is unavailable |
+| SSTPA-SBOM-001 | Maintained SBOM with component name, version, and license | generated artifact + static check | Yes | `make sbom-check` | `docs/compliance/sbom.md`, `tools/devtools/sbom/generate-sbom.mjs` | Covers npm, Go, Cargo/Tauri, and Docker Compose image dependencies |
+| SSTPA-MUTATION-001 | Transactional mutation layer | unit + integration | Yes | `make backend-test` | `backend/internal/mutation` | Covers plan validation, create node, update node, relationship creation, commit report, and transaction rollback on notification failure |
+| SSTPA-MUTATION-002 | Duplicate relationship and DAG guard | unit + integration | Yes | `make backend-test` | `backend/internal/mutation`, `backend/internal/graph` | Duplicate relationship integration test plus relationship recursion governance in graph catalog |
+| SSTPA-MESSAGING-001 | Internal mailbox change notifications | unit + integration | Yes | `make backend-test` | `backend/internal/messaging`, `backend/internal/mutation` | Verifies SRS message enum values and transaction-created `CHANGE_NOTIFICATION` mailbox message |
+| SSTPA-OWNERSHIP-001 | Ownership update rules | unit | Yes | `make backend-test` | `backend/internal/mutation` | Covers Owner/OwnerEmail pair requirement, non-admin self-assumption, and Creator immutability for non-admin users |
+| SSTPA-API-001 | Core graph REST read endpoints | unit + integration | Yes | `make backend-test` | `backend/internal/http` | Covers route contracts, bounded pagination rejection, mutation-created node retrieval, and graph search |
+| SSTPA-API-MUTATION-001 | REST mutation endpoint | integration | Yes | `make backend-test` | `backend/internal/http` | Verifies `POST /api/v1/mutations` creates and updates nodes through the mutation layer and returns notification counts |
+| SSTPA-API-MESSAGE-001 | Mailbox REST endpoints | integration | Yes | `make backend-test` | `backend/internal/http` | Verifies owner change notifications are visible through message list endpoints |
+| SSTPA-REF-API-001 | Reference retrieval and assignment REST endpoints | unit + integration | Yes | `make backend-test` | `backend/internal/http`, `backend/internal/graph` | Covers SRS reference assignment catalog validation plus transactional create/list/delete `[:REFERENCES]` endpoint behavior |
+| SSTPA-OPENAPI-001 | Published OpenAPI 3.1 contract | static + unit | Yes | `make backend-test` | `backend/internal/http`, `docs/api/openapi.yaml` | `GET /api/v1/openapi.yaml` serves the implemented REST surface contract |
+| SSTPA-API-CLIENT-001 | Shared TypeScript API client package | unit | Yes | `make frontend-test` | `packages/api-client` | Verifies request paths, actor propagation, mutation body fallback, and API error handling |

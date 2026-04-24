@@ -1,0 +1,135 @@
+openapi: 3.1.0
+info:
+  title: SSTPA Tool Backend API
+  version: 0.1.0
+  summary: REST contracts for SSTPA graph, mutation, messaging, and reference data slices.
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      responses:
+        "200":
+          description: Backend health response.
+  /nodes:
+    get:
+      responses:
+        "200":
+          description: Paginated SSTPA node summaries.
+  /nodes/{hid}:
+    get:
+      responses:
+        "200":
+          description: SSTPA node with all properties.
+  /nodes/uuid/{uuid}:
+    get:
+      responses:
+        "200":
+          description: SSTPA node with all properties.
+  /nodes/{hid}/context:
+    get:
+      responses:
+        "200":
+          description: Node context, parent relationships, and hierarchy path.
+  /hierarchy:
+    get:
+      responses:
+        "200":
+          description: Compact Capability/System hierarchy graph.
+  /search:
+    get:
+      responses:
+        "200":
+          description: Paginated SSTPA node search results.
+  /validate/relationship:
+    post:
+      responses:
+        "200":
+          description: Validity and reason for a proposed relationship.
+  /mutations:
+    post:
+      responses:
+        "201":
+          description: Transactional mutation CommitReport.
+  /messages:
+    get:
+      responses:
+        "200":
+          description: Paginated mailbox messages.
+    post:
+      responses:
+        "201":
+          description: Created direct message.
+  /messages/unread-count:
+    get:
+      responses:
+        "200":
+          description: Unread message count for the current user.
+  /messages/{messageId}:
+    get:
+      responses:
+        "200":
+          description: Message detail.
+    delete:
+      responses:
+        "200":
+          description: Soft-deleted message detail.
+  /messages/{messageId}/reply:
+    post:
+      responses:
+        "201":
+          description: Reply message.
+  /messages/{messageId}/read:
+    post:
+      responses:
+        "200":
+          description: Message marked read.
+  /reference/frameworks:
+    get:
+      responses:
+        "200":
+          description: Available reference frameworks.
+  /reference/items:
+    get:
+      responses:
+        "200":
+          description: Paginated reference items by framework and type.
+  /reference/items/{externalID}:
+    get:
+      responses:
+        "200":
+          description: Reference item by ExternalID.
+  /reference/items/uuid/{uuid}:
+    get:
+      responses:
+        "200":
+          description: Reference item by uuid.
+  /reference/items/{uuid}/related:
+    get:
+      responses:
+        "200":
+          description: Related reference items.
+  /reference/search:
+    get:
+      responses:
+        "200":
+          description: Paginated reference item search.
+  /reference/validate-assignment:
+    post:
+      responses:
+        "200":
+          description: Validity and reason for a proposed REFERENCES assignment.
+  /references/assignments/{sourceHID}:
+    get:
+      responses:
+        "200":
+          description: Reference assignments for a selected SSTPA node.
+  /references/assignments:
+    post:
+      responses:
+        "201":
+          description: Transactional reference assignment mutation.
+    delete:
+      responses:
+        "200":
+          description: Transactional reference assignment removal.

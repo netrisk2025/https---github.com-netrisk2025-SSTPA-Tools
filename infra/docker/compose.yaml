@@ -20,6 +20,9 @@ services:
       context: ../../backend
     environment:
       SSTPA_API_ADDR: ":8080"
+      SSTPA_NEO4J_URI: bolt://neo4j:7687
+      SSTPA_NEO4J_USER: neo4j
+      SSTPA_NEO4J_PASSWORD: ${SSTPA_NEO4J_PASSWORD:-test-password}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     expose:
       - "8080"

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: bootstrap backend-run backend-test reference-run reference-test frontend-dev frontend-build frontend-lint frontend-typecheck frontend-test compose-config verify
+.PHONY: bootstrap backend-run backend-test reference-run reference-test frontend-dev frontend-build frontend-lint frontend-typecheck frontend-test compose-config copyright-check copyright-apply sbom-generate sbom-check verify
 
 bootstrap:
 	npm install
@@ -35,4 +35,16 @@ frontend-test:
 compose-config:
 	docker compose -f infra/docker/compose.yaml config
 
-verify: backend-test reference-test frontend-typecheck frontend-test
+copyright-check:
+	cd tools/devtools/copyright && go run ./cmd/apply --check
+
+copyright-apply:
+	cd tools/devtools/copyright && go run ./cmd/apply --apply
+
+sbom-generate:
+	node tools/devtools/sbom/generate-sbom.mjs
+
+sbom-check:
+	node tools/devtools/sbom/generate-sbom.mjs --check
+
+verify: copyright-check sbom-check backend-test reference-test frontend-lint frontend-typecheck frontend-test compose-config

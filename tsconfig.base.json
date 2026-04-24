@@ -15,6 +15,7 @@
     "baseUrl": ".",
     "paths": {
       "@sstpa/addon-sdk": ["packages/addon-sdk/src/index.ts"],
+      "@sstpa/api-client": ["packages/api-client/src/index.ts"],
       "@sstpa/domain": ["packages/domain/src/index.ts"],
       "@sstpa/ui": ["packages/ui/src/index.ts"],
       "@sstpa/navigator-tool": ["addons/navigator/src/index.ts"],
