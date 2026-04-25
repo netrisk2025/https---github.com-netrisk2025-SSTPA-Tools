@@ -13,6 +13,15 @@ const navigatorTool: ToolModule = {
     summary: "Hierarchy search, SoI selection, and clone-target selection.",
     inputContracts: ["current-soi", "search-query", "selection-mode"],
     outputContracts: ["selected-soi", "selected-node", "clone-target"],
+    requiredContexts: ["current-soi", "current-user", "graph-selection"],
+    graphScopes: [
+      {
+        nodeTypes: ["Capability", "Sandbox", "System", "Element"],
+        relationshipTypes: ["HAS_SYSTEM", "PARENTS"],
+        allowsCrossSoI: true,
+      },
+    ],
+    requirementIds: ["3.4.1-001", "3.4.1-002", "3.4.1.1-002", "3.4.1.1-006"],
   },
   load: async () => ({ component: "navigator" }),
 }

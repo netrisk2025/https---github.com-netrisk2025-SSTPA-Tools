@@ -13,6 +13,15 @@ const messageCenterTool: ToolModule = {
     summary: "Mailbox access for direct messages and owner-notification traffic.",
     inputContracts: ["current-user", "current-soi"],
     outputContracts: ["read-state-change", "reply-draft"],
+    requiredContexts: ["current-user"],
+    graphScopes: [
+      {
+        nodeTypes: ["User", "Mailbox", "Message"],
+        relationshipTypes: ["HAS_MAILBOX", "HAS_MESSAGE", "REPLIES_TO"],
+        allowsCrossSoI: true,
+      },
+    ],
+    requirementIds: ["3.3.1-001", "3.3.1-002", "3.3.1-003", "3.3.1-004", "3.3.1-005"],
   },
   load: async () => ({ component: "message-center" }),
 }

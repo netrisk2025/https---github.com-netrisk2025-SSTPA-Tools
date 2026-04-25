@@ -4,12 +4,15 @@
 
 **Goal:** Stand up the Neo4j-backed core: driver wiring, node-type catalog, HID + uuid generation, common property group (identity + ownership + description), and the constraint/index bootstrap. No REST endpoints beyond `/health`, no mutation layer, no notifications. Those land in S03.
 
+**V58 migration note:** This detailed slice was originally authored against the V56 section map. Execute it against `docs/srs/SSTPA Tool SRS V58.md` and `docs/verification/SSTPA_SHALL_Requirements.md`; treat legacy references to identity/property sections as V58 §1.3.8 and §1.3.9 unless the task text has been explicitly amended. The node-type catalog must include V58 additions used by downstream slices: FunctionalFlow, Regime, Goal, Strategy, Context, Justification, Assumption, Solution, and the migration-assumption MasterRegime template node.
+
 **Architecture:** Pure-Go library in `backend/internal/{identity,graph,metadata,schema}`. An opt-in Neo4j driver wired into `cmd/api` at startup that runs constraint/index migrations and then idles. All new code is library-first so S03 can assemble it without touching the HTTP layer.
 
 **Tech Stack:** Go 1.24, `github.com/neo4j/neo4j-go-driver/v5`, `github.com/google/uuid`. Cypher 25.
 
 **Pre-reads (mandatory before any task):**
-- `SSTPA Tool SRS V56.md` §1.3 (Core Data Model), §1.3.6 (Identity), §1.3.7 (Common Property Groups), §2.2.4–2.2.5 (Backend Software, Backend Database)
+- `docs/srs/SSTPA Tool SRS V58.md` §1.3 (Core Data Model), §1.3.8 (Identity Model), §1.3.9 (Common Property Groups), §2.2.10 (Backend API/transaction requirements)
+- `docs/verification/SSTPA_SHALL_Requirements.md` requirements: `1.3-001`, `1.3-002`, `1.3-003`, `1.3.2-001` through `1.3.2-011`, `1.3.3-001`, `1.3.8-001`, `1.3.8.1-001`, `1.3.8.2.1-001`
 - `backend/cmd/api/main.go`
 - `backend/internal/config/config.go`
 - `backend/internal/http/router.go`
@@ -44,13 +47,13 @@
 - Create: `backend/internal/identity/types_test.go`
 
 **Agent Briefing:**
-Build a Go source of truth for the 25 SRS Core Data Model node types and their three-letter identifiers. Export:
-- `type NodeType string` with typed constants `NodeTypeCapability`, `NodeTypeSandbox`, ... for all 25 types (see SRS §1.3.6.1 for the canonical list and abbreviations).
+Build a Go source of truth for the V58 SRS Core Data Model node types and their identifiers. Export:
+- `type NodeType string` with typed constants `NodeTypeCapability`, `NodeTypeSandbox`, ... for all V58 canonical and migration-required types (see SRS §1.3.8.1 for the canonical list and abbreviations).
 - `TypeID(nt NodeType) (string, bool)` returning the canonical ID (e.g., `"SYS"`) and `ok=false` for unknown types.
-- `AllTypes() []NodeType` returning the 25 types in SRS listing order.
+- `AllTypes() []NodeType` returning the V58 types in SRS listing order, followed by migration-assumption tool-data types.
 - `IsValidTypeID(id string) bool`.
 
-The list from SRS §1.3.6.1 is authoritative: Capability CAP, Sandbox SB, System SYS, Environment ENV, Connection CNN, Interface INT, Function FUN, Element EL, Purpose PUR, State ST, ControlStructure CS, Asset AST, Security SEC, Constraint CONSTR, Requirement REQ, Validation VAL, Control CTRL, Countermeasure CM, Verification VER, ControlAlgorithm CAL, ProcessModel PM, ControlAction ACT, Feedback FB, ControlledProcess CP, Hazard HAZ, Loss LOS, Attack ATK. Count: 27 IDs → 27 types (cross-check with SRS before shipping).
+The list from SRS §1.3.8.1 is authoritative, with documented V58 migration assumptions for `FunctionalFlow`, `Regime`, GSN nodes, and `MasterRegime` captured in `docs/srs/srs-v58-migration-notes.md`. Cross-check the exact current implementation before shipping; do not retain the old 25/27-node V56 count as an acceptance rule.
 
 **Step 1: Failing test**
 
@@ -83,8 +86,8 @@ func TestTypeIDUnknown(t *testing.T) {
 }
 
 func TestAllTypesCountMatchesSRS(t *testing.T) {
-    if got := len(AllTypes()); got < 25 {
-        t.Fatalf("expected >=25 node types per SRS §1.3.6.1, got %d", got)
+    if got := len(AllTypes()); got < 35 {
+        t.Fatalf("expected V58 node catalog including GSN and migration tool-data types, got %d", got)
     }
 }
 
@@ -106,7 +109,7 @@ Expected: undefined symbols.
 
 **Step 3: Implement**
 
-Create `backend/internal/identity/types.go` with all 27 constants, the `TypeID` map, `AllTypes()`, and `IsValidTypeID()`. Use `NodeType` as a string alias. Declare IDs in the order of SRS §1.3.6.1.
+Create `backend/internal/identity/types.go` with the V58 constants, the `TypeID` map, `AllTypes()`, and `IsValidTypeID()`. Use `NodeType` as a string alias. Declare IDs in the order of SRS §1.3.8.1, followed by migration-assumption tool-data types.
 
 **Step 4: Run — expect pass**
 ```
@@ -118,12 +121,12 @@ Expected: all 4 tests pass.
 ```
 git add backend/internal/identity
 git commit -m "$(cat <<'EOF'
-feat(identity): introduce node-type catalog per SRS §1.3.6.1
+feat(identity): introduce node-type catalog per SRS V58
 
-Adds the 27-entry NodeType enum and TypeID lookup shared by the HID
-generator and future schema bootstrapper. Pure library; no DB.
+Adds the V58 NodeType enum and TypeID lookup shared by the HID
+generator and schema bootstrapper. Pure library; no DB.
 
-Refs: SRS §1.3.1, §1.3.6.1. Req: SSTPA-GRAPH-RULES-001.
+Refs: SRS §1.3.3, §1.3.8.1. Req: SSTPA-GRAPH-RULES-001.
 Proposes: SSTPA-NODETYPE-CATALOG-001. Task: S02-T01.
 Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
 EOF

@@ -12,10 +12,14 @@ func TestTypeIDKnown(t *testing.T) {
 		NodeTypeCapability:        "CAP",
 		NodeTypeSystem:            "SYS",
 		NodeTypeControlStructure:  "CS",
+		NodeTypeFunctionalFlow:    "FF",
+		NodeTypeRegime:            "REG",
 		NodeTypeControlledProcess: "CP",
 		NodeTypeHazard:            "HAZ",
 		NodeTypeLoss:              "LOS",
 		NodeTypeAttack:            "ATK",
+		NodeTypeGoal:              "G",
+		NodeTypeSolution:          "SOL",
 	}
 
 	for nodeType, want := range cases {
@@ -33,9 +37,9 @@ func TestTypeIDUnknown(t *testing.T) {
 }
 
 func TestAllTypesCountCoversCoreAndToolData(t *testing.T) {
-	// 27 Core Data Model types (SRS §1.3.6.1) + 5 Tool Data types (SRS §1.4).
-	if got := len(AllTypes()); got != 32 {
-		t.Fatalf("expected 32 node types (27 Core + 5 Tool Data), got %d", got)
+	// 35 V58 canonical labels + 6 tool/template data types.
+	if got := len(AllTypes()); got != 41 {
+		t.Fatalf("expected 41 node types (35 canonical + 6 tool/template), got %d", got)
 	}
 }
 
@@ -56,6 +60,7 @@ func TestToolDataTypeIDs(t *testing.T) {
 		NodeTypeAdminRegistry: "ARG",
 		NodeTypeUser:          "USR",
 		NodeTypeAdmin:         "ADM",
+		NodeTypeMasterRegime:  "MRG",
 	}
 
 	for nodeType, want := range cases {

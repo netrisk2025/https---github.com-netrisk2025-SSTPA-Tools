@@ -62,6 +62,7 @@ func NewRouterWithOptions(options RouterOptions) http.Handler {
 		group.Get("/search", api.searchHandler)
 		group.Post("/validate/relationship", api.validateRelationshipHandler)
 		group.Post("/mutations", api.mutationsHandler)
+		group.Post("/system-creation/from-element", api.createSystemFromElementHandler)
 
 		group.Get("/messages/unread-count", api.unreadMessageCountHandler)
 		group.Get("/messages", api.listMessagesHandler)

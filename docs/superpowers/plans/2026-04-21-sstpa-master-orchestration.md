@@ -2,7 +2,9 @@
 
 > **For agentic workers:** This is a plan-of-plans. It defines the slice decomposition, dependency DAG, orchestration conventions, gap-fill workflow, and acceptance gates for the whole product. Per-slice plans live in `docs/superpowers/plans/slices/`. Slice execution uses `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans`.
 
-**Goal:** Deliver SSTPA Tools — a desktop-first systems security engineering application — to a working MVP on a single host, with a clear path to the future split-backend deployment. MVP runs on Linux, Windows, and macOS installers, operates air-gapped on Windows 11 Enterprise, and satisfies the Current-Version SHALL set in `SSTPA Tool SRS V56.md`.
+**Goal:** Deliver SSTPA Tools — a desktop-first systems security engineering application — to a working MVP on a single host, with a clear path to the future split-backend deployment. MVP runs on Linux, Windows, and macOS installers, operates air-gapped on Windows 11 Enterprise, and satisfies the Current-Version SHALL set in `docs/srs/SSTPA Tool SRS V58.md`, treated as intended SRS version 0.5.8.
+
+**V58 rebaseline:** SRS V58 supersedes the prior V56 planning baseline. The consolidated SHALL source for planning and verification is `docs/verification/SSTPA_SHALL_Requirements.md`. Slice-level verification mappings live in `docs/superpowers/plans/srs-v58-slice-verification.md`.
 
 **Architecture:** Tauri + React + TypeScript desktop shell (single window, add-ons in pop-ups) talking over HTTPS via Caddy to a Go/chi REST backend that drives a Neo4j Community Edition graph, with OTel/Prometheus/Tempo/Grafana telemetry. Reference frameworks (NIST 800-53r5, MITRE ATT&CK, MITRE EMB3D) flow through an offline `raw → staged → normalized → imported` pipeline into a read-only subgraph. All mutation is ACID and generates owner notifications in-transaction.
 
@@ -34,8 +36,8 @@ This plan is designed to be executed by an AI orchestrator (Claude-class model) 
 ### Present (functional scaffolding)
 - Monorepo layout with npm workspaces (`apps/`, `addons/`, `packages/`) and a Go workspace (`backend/`, `tools/reference-pipeline/`).
 - Go backend with `/healthz` and `/api/v1/health` chi routes, minimal config loader, one passing test (`backend/internal/http/health_test.go`).
-- Tauri 2 + React 19 shell rendering a glass-styled scaffold page, three add-on stubs exporting manifests only (`addons/navigator`, `addons/requirements`, `addons/message-center`).
-- Shared packages: `@sstpa/addon-sdk` (ToolModule/ToolManifest types), `@sstpa/domain` (RequirementRecord + hasVerificationGap), `@sstpa/ui` (glass panel className exports).
+- Tauri 2 + React 19 shell rendering a scaffold page and add-on manifests for Navigator, Requirements, State, Flow, Asset Manager, Loss, Goal Keeper, Reference Catalog, and Message Center.
+- Shared packages: `@sstpa/addon-sdk` (ToolModule/ToolManifest types plus SoI, Data Drawer, graph-scope, and diagram-persistence contracts), `@sstpa/domain` (RequirementRecord + hasVerificationGap), `@sstpa/ui` (glass panel className exports).
 - Reference-pipeline CLI (`tools/reference-pipeline`) with a `NormalizedReferenceItem` record, JSON Schema, and two unit tests.
 - Docker Compose stack wiring Caddy, backend, Neo4j, OTel Collector, Prometheus, Tempo, Grafana (no backend–Neo4j connection yet).
 - Make targets: `bootstrap`, `backend-run`, `backend-test`, `reference-run`, `reference-test`, `frontend-dev`, `frontend-build`, `frontend-lint`, `frontend-typecheck`, `frontend-test`, `compose-config`, `verify`.
@@ -43,9 +45,10 @@ This plan is designed to be executed by an AI orchestrator (Claude-class model) 
 
 ### Absent (must be built)
 - Startup Software / launcher.
-- Neo4j driver wiring; any Cypher; HID + uuid generation; ownership metadata; constraint & index bootstrap.
-- Any mutation layer, affected-node diffing, change-notification-in-transaction logic.
-- Every API endpoint beyond `/health` (node retrieval, hierarchy, search, context, validation, messages, reference framework CRUD of [:REFERENCES]).
+- Full V58 System-from-Element creation behavior, including default Purpose, Environment, State, Security, and FunctionalFlow nodes.
+- Full Asset Manager workflows: table-first UI, PRIMARY/DERIVED handling, Regime cloning, inherited Criticality display, and idempotent Loss/Root Goal generation.
+- Goal Keeper UI and diagram persistence/reopen reconciliation.
+- Complete API coverage for V58 tool workflows beyond the currently implemented core REST surface.
 - Every per-type property group for the 25 Core Data Model node types.
 - All Core Data Model relationships except as listed in docs.
 - Reference framework importers for NIST 800-53r5, MITRE ATT&CK, MITRE EMB3D, and the offline intermediate format that feeds them.
@@ -80,21 +83,40 @@ All slice plans live under `docs/superpowers/plans/slices/`. Prerequisites must 
 | S06 | Frontend Foundation: Startup, Shell, Data Drawer | B (outline) | S04 | Startup Software launcher, Tauri lifecycle, Branding & Control Panels, SoI Panel placeholder, Main Panel with one Node Type Section, Data Drawer end-to-end for one node type |
 | S07 | Navigator, SoI Selection & Requirements Tool | B (outline) | S06 | Cytoscape Navigator with hierarchy/search/clone modes, SoI Panel, Requirements Tool with SysML 2.0 diagram + traceability matrix |
 | S08 | State Tool, Flow Tool, Reports Dropdown | B (outline) | S07 | State Tool, Flow Tool (Functional + STPA Control modes), System Description / System Specification / Requirement Traceability Gap reports |
-| S09 | Loss Tool & Loss Data Model (gap-fill) | B (outline) | S07 | Loss data model gap-fill (AttackTreeJSON schema, Loss auto-generation rules), Loss Tool with Attack Tree DAG + SAND/XOR |
+| S09 | Loss Tool & Loss Data Model (gap-fill) | B (outline) | S07, S13 | Loss data model gap-fill (AttackTreeJSON schema, DAG constraints), Loss Tool with Attack Tree DAG + SAND/XOR over Asset-generated Loss nodes |
 | S10 | Message Center, Reference Catalog Tool, Admin & Onboarding | B (outline) | S06 | Message Center real implementation, Reference Catalog Tool, Admin/User onboarding per SRS §1.4.1–1.4.3 |
 | S11 | Help, Tutorial, Example Capability (gap-fill) | B (outline) | S08, S10 | Help Data Model gap-fill, Help content scaffolding, runnable Tutorial from Help menu, bundled example Capability |
 | S12 | Installer, Air-Gap Bundle, Telemetry Dashboards, Release | B (outline) | S11 | Linux/Windows/macOS installers, air-gapped distribution layout, resource-check dialog, Grafana dashboards, release pipeline |
+| S13 | V58 Asset Manager, System Creation & Goal/Loss Generation | B (outline) | S04, S06 | System-from-Element defaults/copy behavior, PRIMARY/DERIVED Assets, Regime cloning, idempotent Loss + Root Goal generation |
+| S14 | V58 Goal Keeper & Diagram Persistence | B (outline) | S13 | GSN node/relationship workflows, DAG validation, Solution evidence, GoalStructure JSON save/reopen reconciliation |
 
 Dependency DAG:
 
 ```
-S01 → S02 ──┬─> S03 ─> S04 ─> S06 ─┬─> S07 ─┬─> S08 ──┐
-            │                      │        ├─> S09 ──┤
-            └─> S05 ────────────────┘        └──┬─────┤
-                                 S06 ─> S10 ────┘     │
-                                 S08 + S10 ─> S11 ────┤
+S01 → S02 ──┬─> S03 ─> S04 ─> S06 ─┬─> S07 ─> S08 ───┐
+            │                      │        └────────┤
+            └─> S05 ────────────────┘                 │
+                                 S06 ─> S10 ──────────┘
+                                 S08 + S10 ─> S11 ────┐
                                               S11 ─> S12
+                                 S04 + S06 ─> S13 ─> S09
+                                                   └──> S14
 ```
+
+## 4a. V58 Migration Phases
+
+The SRS V58 migration runs before additional feature polish. Existing modules should be refactored in place unless the plan marks a component as cheaper to replace.
+
+| Phase | Owning Slice(s) | Scope | Verification Source |
+|---|---|---|---|
+| Phase 1 — SRS sanity fixes | S02/S13 planning notes | Treat V58 as intended 0.5.8; document header mismatch, MasterRegime gap, DiagramView ambiguity, REFERENCES contradiction, stale section refs | `docs/srs/srs-v58-migration-notes.md` |
+| Phase 2 — Schema migration | S02, S03, S04 | Central schema registry, relationship constants, source/target validation, SoI HID enforcement, bounded recursive traversal | `docs/verification/SSTPA_SHALL_Requirements.md` IDs in `srs-v58-slice-verification.md` |
+| Phase 3 — Compatibility layer | S02, S03, S04 | Legacy aliases only at import/migration boundaries; `HAS`/`Has` mapping; `Baron` to `Barren`; canonical names on new writes | Schema/mutation unit tests and import boundary tests |
+| Phase 4 — System creation | S13 | Element-to-System behavior, default Purpose/Environment/State/Security/FunctionalFlow, copied Requirements/Assets, HID/uuid recompute, Loss/Root Goal creation | S13 integration tests |
+| Phase 5 — Asset Manager | S13 | Table-first UI, PRIMARY/DERIVED, `DERIVED_FROM`, Criticality inheritance, MasterRegime cloning, idempotent Loss/Goal generation | S13 Playwright + backend tests |
+| Phase 6 — Goal Keeper | S14 | GSN nodes, DAG/root rules, terminal Solution nodes, evidence validation, GoalStructure JSON layout | S14 Playwright + backend tests |
+| Phase 7 — Diagram persistence | S08, S09, S14 | Existing JSON properties first; optional reusable DiagramView only if low cost; stale-reference reconciliation on reopen | Diagram JSON save/reopen tests |
+| Phase 8 — Tests | All slices | Canonical validation, SoI boundary, duplicate rejection, recursion bounds, System creation, Asset workflows, Goal Keeper, diagrams | `make verify` plus slice-specific evidence |
 
 ## 5. Gap-Fill Workflow (For SRS Holes Called Out by the User)
 
@@ -103,7 +125,7 @@ The user flagged these gaps: Loss Tool, reference data intermediate format, Help
 | Gap | Slice | Gap-Fill Spec file | Task |
 |-----|-------|---------------------|------|
 | Reference intermediate data format & ingestion methodology | S05 | `docs/architecture/gap-fill-reference-intermediate-format.md` | S05-T01 |
-| Loss data model (AttackTreeJSON schema, Loss auto-generation rules, DAG constraints) | S09 | `docs/architecture/gap-fill-loss-data-model.md` | S09-T01 |
+| Loss data model (AttackTreeJSON schema, Loss Tool invocation, DAG constraints) | S09 | `docs/architecture/gap-fill-loss-data-model.md` | S09-T01 |
 | Help Data Model (node types, properties, content sourcing) | S11 | `docs/architecture/gap-fill-help-data-model.md` | S11-T01 |
 | Tutorial structure (runnable steps, state resets, bundled content) | S11 | `docs/architecture/gap-fill-tutorial.md` | S11-T02 |
 | Example Capability bundle (content, HIDs, expected analytics) | S11 | `docs/architecture/gap-fill-example-capability.md` | S11-T03 |
@@ -171,7 +193,9 @@ Each slice has four gates, in order. A slice is `Accepted` only when all four pa
 ## 9. Interaction Model With Existing Artifacts
 
 - **`CLAUDE.md`** — treated as project-level authoritative guidance. Any conflict with a slice plan is resolved in favor of `CLAUDE.md`; the slice plan is amended, not overridden.
-- **`SSTPA Tool SRS V56.md`** — the current draft. Every slice's completion note must cite the SRS sections it implements.
+- **`docs/srs/SSTPA Tool SRS V58.md`** — the authoritative SRS for this migration, treated as intended version 0.5.8 despite the source header mismatch. Every slice's completion note must cite the SRS sections and SHALL IDs it implements.
+- **`docs/verification/SSTPA_SHALL_Requirements.md`** — the consolidated SHALL extraction used for slice verification planning.
+- **`docs/superpowers/plans/srs-v58-slice-verification.md`** — the slice-to-requirement map. Slice plans must remain aligned with this file.
 - **`docs/verification/shall-register.md`** — the approved SHALL set. Today it holds 3 `Candidate` entries (DRAFT-001/002/003); S01 will expand it materially.
 - **`docs/verification/verification-matrix.md`** — the matrix that closes the loop. Each Approved SHALL must have a row here with an automated or explicitly-documented manual verification.
 - **`.opencode/commands/`** — the existing `/verify-slice`, `/srs-audit`, `/traceability`, `/reference-audit` commands remain the recommended tools for the Verification gate; this plan does not replace them.
@@ -191,6 +215,7 @@ Each slice has four gates, in order. A slice is `Accepted` only when all four pa
 docs/superpowers/plans/
   2026-04-21-sstpa-master-orchestration.md          ← this file
   2026-04-21-agent-execution-conventions.md         ← orchestration conventions
+  srs-v58-slice-verification.md                     ← V58 slice-to-SHALL verification map
   slices/
     2026-04-21-slice-01-scaffold-hardening.md       ← Phase A (detailed)
     2026-04-21-slice-02-graph-core-identity.md      ← Phase A (detailed)
@@ -204,11 +229,13 @@ docs/superpowers/plans/
     2026-04-21-slice-10-messaging-admin.md          ← Phase B (outline)
     2026-04-21-slice-11-help-tutorial.md            ← Phase B (outline + gap-fill)
     2026-04-21-slice-12-installer-telemetry.md      ← Phase B (outline)
+    2026-04-24-slice-13-v58-asset-manager.md        ← Phase B (outline)
+    2026-04-24-slice-14-v58-goal-keeper.md          ← Phase B (outline)
 ```
 
 ## 12. Execution Entry Point
 
-Begin with **Slice 01**. Do not skip it. S01 establishes the verification rails every later slice depends on.
+Begin with **Slice 01** on a greenfield execution. Do not skip it. S01 establishes the verification rails every later slice depends on. For the current V58 migration branch, continue by keeping S02-S04 verification green and then execute S13 before S09/S14, because Asset/Loss/Root Goal generation now anchors both downstream tools.
 
 Approach choice for this plan set:
 

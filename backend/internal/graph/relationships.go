@@ -5,7 +5,12 @@
 // copies may be used under specific contractual terms provided by the author.
 package graph
 
-import "sstpa-tool/backend/internal/identity"
+import (
+	"fmt"
+
+	"sstpa-tool/backend/internal/identity"
+	"sstpa-tool/backend/internal/metadata"
+)
 
 type RecursionKind string
 
@@ -15,11 +20,34 @@ const (
 	RecursionCyclicByDesign RecursionKind = "cyclic-by-design"
 )
 
+type SoIBoundaryRule string
+
+const (
+	SoIUnrestricted           SoIBoundaryRule = "unrestricted"
+	SoISameIndex              SoIBoundaryRule = "same-index"
+	SoISameIndexWithException SoIBoundaryRule = "same-index-with-exception"
+	SoIMayCross               SoIBoundaryRule = "may-cross"
+
+	DefaultRecursiveTraversalMaxDepth = 50
+	CrossSoIJustificationProperty     = "CrossSoIJustification"
+)
+
+type RelationshipProperty struct {
+	Name          string
+	Required      bool
+	Default       any
+	AllowedValues []string
+}
+
 type Relationship struct {
-	Name      string
-	From      identity.NodeType
-	To        identity.NodeType
-	Recursion RecursionKind
+	Name              string
+	From              identity.NodeType
+	To                identity.NodeType
+	Recursion         RecursionKind
+	SoI               SoIBoundaryRule
+	Properties        []RelationshipProperty
+	DefaultMaxDepth   int
+	AllowMultiplicity bool
 }
 
 func Catalog() []Relationship {
@@ -41,99 +69,309 @@ func LookupRelationship(name string, from identity.NodeType, to identity.NodeTyp
 	return Relationship{}, false
 }
 
+func LookupRelationshipWithLegacyAliases(name string, from identity.NodeType, to identity.NodeType, allowLegacy bool) (Relationship, string, bool) {
+	if relationship, ok := LookupRelationship(name, from, to); ok {
+		return relationship, name, true
+	}
+
+	if !allowLegacy {
+		return Relationship{}, "", false
+	}
+
+	canonical, ok := LegacyRelationshipAlias(name, from, to)
+	if !ok {
+		return Relationship{}, "", false
+	}
+
+	relationship, ok := LookupRelationship(canonical, from, to)
+	return relationship, canonical, ok
+}
+
+func LegacyRelationshipAlias(name string, from identity.NodeType, to identity.NodeType) (string, bool) {
+	if name != "HAS" && name != "Has" {
+		return "", false
+	}
+
+	candidates := []string{}
+	for _, relationship := range relationshipCatalog {
+		if relationship.From == from && relationship.To == to {
+			candidates = append(candidates, relationship.Name)
+		}
+	}
+	if len(candidates) != 1 {
+		return "", false
+	}
+
+	return candidates[0], true
+}
+
+func DefaultRelationshipProperties(relationship Relationship) map[string]any {
+	props := map[string]any{}
+	for _, property := range relationship.Properties {
+		if property.Required {
+			props[property.Name] = property.Default
+		}
+	}
+
+	return props
+}
+
+func TraversalMaxDepth(relationship Relationship) int {
+	if relationship.DefaultMaxDepth > 0 {
+		return relationship.DefaultMaxDepth
+	}
+	if relationship.Recursion == RecursionNone {
+		return 0
+	}
+
+	return DefaultRecursiveTraversalMaxDepth
+}
+
+func ValidateRelationshipProperties(relationship Relationship, props map[string]any) error {
+	for _, property := range relationship.Properties {
+		value, ok := props[property.Name]
+		if property.Required && (!ok || value == "") {
+			return fmt.Errorf("relationship %s requires property %s", relationship.Name, property.Name)
+		}
+		if len(property.AllowedValues) == 0 || !ok {
+			continue
+		}
+		text, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("relationship %s property %s must be a string enum", relationship.Name, property.Name)
+		}
+		if !stringIn(text, property.AllowedValues) {
+			return fmt.Errorf("relationship %s property %s value %q is not allowed", relationship.Name, property.Name, text)
+		}
+	}
+
+	return nil
+}
+
+func ValidateSoIBoundary(relationship Relationship, fromHID string, toHID string, props map[string]any) error {
+	switch relationship.SoI {
+	case SoIUnrestricted, SoIMayCross:
+		return nil
+	}
+
+	_, fromIndex, _, err := identity.ParseHID(fromHID)
+	if err != nil {
+		return fmt.Errorf("invalid from HID %s: %w", fromHID, err)
+	}
+	_, toIndex, _, err := identity.ParseHID(toHID)
+	if err != nil {
+		return fmt.Errorf("invalid to HID %s: %w", toHID, err)
+	}
+	if fromIndex == toIndex {
+		return nil
+	}
+
+	if relationship.SoI == SoISameIndexWithException {
+		if justification, ok := props[CrossSoIJustificationProperty].(string); ok && justification != "" && justification != metadata.NullValue {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("relationship %s cannot cross SoI boundary from index %q to %q", relationship.Name, fromIndex, toIndex)
+}
+
+type relationshipOption func(*Relationship)
+
+func rel(name string, from identity.NodeType, to identity.NodeType, options ...relationshipOption) Relationship {
+	relationship := Relationship{
+		Name: name,
+		From: from,
+		To:   to,
+		SoI:  SoISameIndex,
+	}
+	for _, option := range options {
+		option(&relationship)
+	}
+	if relationship.Recursion != RecursionNone && relationship.DefaultMaxDepth == 0 {
+		relationship.DefaultMaxDepth = DefaultRecursiveTraversalMaxDepth
+	}
+
+	return relationship
+}
+
+func unrestricted() relationshipOption {
+	return func(relationship *Relationship) { relationship.SoI = SoIUnrestricted }
+}
+
+func mayCross() relationshipOption {
+	return func(relationship *Relationship) { relationship.SoI = SoIMayCross }
+}
+
+func sameIndexWithException() relationshipOption {
+	return func(relationship *Relationship) { relationship.SoI = SoISameIndexWithException }
+}
+
+func recursion(kind RecursionKind) relationshipOption {
+	return func(relationship *Relationship) { relationship.Recursion = kind }
+}
+
+func properties(properties ...RelationshipProperty) relationshipOption {
+	return func(relationship *Relationship) {
+		relationship.Properties = append(relationship.Properties, properties...)
+	}
+}
+
+func requiredEnum(name string, defaultValue string, allowed ...string) RelationshipProperty {
+	return RelationshipProperty{Name: name, Required: true, Default: defaultValue, AllowedValues: allowed}
+}
+
+func requiredDefault(name string, defaultValue any) RelationshipProperty {
+	return RelationshipProperty{Name: name, Required: true, Default: defaultValue}
+}
+
+func stringIn(value string, candidates []string) bool {
+	for _, candidate := range candidates {
+		if candidate == value {
+			return true
+		}
+	}
+
+	return false
+}
+
+var transitionProperties = []RelationshipProperty{
+	requiredEnum("TransitionKind", "FUNCTIONAL", "FUNCTIONAL", "COUNTERMEASURE_REQUIRED", "BOTH"),
+}
+
+var flowProperties = []RelationshipProperty{
+	requiredEnum("RelationshipNature", "LOGICAL", "PHYSICAL", "LOGICAL", "BOTH"),
+	requiredDefault("PhysicalType", metadata.NullValue),
+	requiredDefault("LogicalLayer", metadata.NullValue),
+	requiredDefault("Protocol", metadata.NullValue),
+	requiredEnum("FlowDirectionality", "Unidirectional", "Unidirectional", "Bidirectional", "Multicast"),
+	requiredDefault("TimingClass", metadata.NullValue),
+	requiredDefault("SecurityClass", metadata.NullValue),
+}
+
 var relationshipCatalog = []Relationship{
-	{Name: "HAS_USER_REGISTRY", From: identity.NodeTypeSSTPATool, To: identity.NodeTypeUserRegistry},
-	{Name: "HAS_ADMIN_REGISTRY", From: identity.NodeTypeSSTPATool, To: identity.NodeTypeAdminRegistry},
-	{Name: "HAS_USER", From: identity.NodeTypeUserRegistry, To: identity.NodeTypeUser},
-	{Name: "HAS_ADMIN", From: identity.NodeTypeAdminRegistry, To: identity.NodeTypeAdmin},
+	rel("HAS_USER_REGISTRY", identity.NodeTypeSSTPATool, identity.NodeTypeUserRegistry, unrestricted()),
+	rel("HAS_ADMIN_REGISTRY", identity.NodeTypeSSTPATool, identity.NodeTypeAdminRegistry, unrestricted()),
+	rel("HAS_USER", identity.NodeTypeUserRegistry, identity.NodeTypeUser, unrestricted()),
+	rel("HAS_ADMIN", identity.NodeTypeAdminRegistry, identity.NodeTypeAdmin, unrestricted()),
+	rel("HAS_MASTER_REGIME", identity.NodeTypeSSTPATool, identity.NodeTypeMasterRegime, unrestricted()),
 
-	{Name: "HAS_SYSTEM", From: identity.NodeTypeCapability, To: identity.NodeTypeSystem},
-	{Name: "HAS_REQUIREMENT", From: identity.NodeTypeCapability, To: identity.NodeTypeRequirement},
-	{Name: "HAS_SYSTEM", From: identity.NodeTypeSandbox, To: identity.NodeTypeSystem},
+	rel("HAS_SYSTEM", identity.NodeTypeCapability, identity.NodeTypeSystem, unrestricted()),
+	rel("HAS_REQUIREMENT", identity.NodeTypeCapability, identity.NodeTypeRequirement, unrestricted()),
+	rel("HAS_SYSTEM", identity.NodeTypeSandbox, identity.NodeTypeSystem, unrestricted()),
 
-	{Name: "ACTS_IN", From: identity.NodeTypeSystem, To: identity.NodeTypeEnvironment},
-	{Name: "HAS_CONNECTION", From: identity.NodeTypeSystem, To: identity.NodeTypeConnection},
-	{Name: "HAS_INTERFACE", From: identity.NodeTypeSystem, To: identity.NodeTypeInterface},
-	{Name: "HAS_FUNCTION", From: identity.NodeTypeSystem, To: identity.NodeTypeFunction},
-	{Name: "HAS_ELEMENT", From: identity.NodeTypeSystem, To: identity.NodeTypeElement},
-	{Name: "REALIZES", From: identity.NodeTypeSystem, To: identity.NodeTypePurpose},
-	{Name: "EXHIBITS", From: identity.NodeTypeSystem, To: identity.NodeTypeState},
-	{Name: "EXECUTES", From: identity.NodeTypeSystem, To: identity.NodeTypeControlStructure},
-	{Name: "HAS_ASSET", From: identity.NodeTypeSystem, To: identity.NodeTypeAsset},
-	{Name: "HAS_SECURITY", From: identity.NodeTypeSystem, To: identity.NodeTypeSecurity},
+	rel("ACTS_IN", identity.NodeTypeSystem, identity.NodeTypeEnvironment),
+	rel("HAS_CONNECTION", identity.NodeTypeSystem, identity.NodeTypeConnection),
+	rel("HAS_INTERFACE", identity.NodeTypeSystem, identity.NodeTypeInterface),
+	rel("HAS_FUNCTION", identity.NodeTypeSystem, identity.NodeTypeFunction),
+	rel("HAS_ELEMENT", identity.NodeTypeSystem, identity.NodeTypeElement),
+	rel("REALIZES", identity.NodeTypeSystem, identity.NodeTypePurpose),
+	rel("EXHIBITS", identity.NodeTypeSystem, identity.NodeTypeState),
+	rel("EXECUTES", identity.NodeTypeSystem, identity.NodeTypeControlStructure),
+	rel("HAS_ASSET", identity.NodeTypeSystem, identity.NodeTypeAsset),
+	rel("HAS_SECURITY", identity.NodeTypeSystem, identity.NodeTypeSecurity),
+	rel("HAS_FUNCTIONAL_FLOW", identity.NodeTypeSystem, identity.NodeTypeFunctionalFlow),
 
-	{Name: "HAS_HAZARD", From: identity.NodeTypeEnvironment, To: identity.NodeTypeHazard},
-	{Name: "HAS_REQUIREMENT", From: identity.NodeTypeConnection, To: identity.NodeTypeRequirement},
+	rel("HAS_HAZARD", identity.NodeTypeEnvironment, identity.NodeTypeHazard),
+	rel("HAS_REQUIREMENT", identity.NodeTypeConnection, identity.NodeTypeRequirement),
 
-	{Name: "HAS_REQUIREMENT", From: identity.NodeTypeInterface, To: identity.NodeTypeRequirement},
-	{Name: "IMPLEMENTS", From: identity.NodeTypeInterface, To: identity.NodeTypeControlAlgorithm},
-	{Name: "IMPLEMENTS", From: identity.NodeTypeInterface, To: identity.NodeTypeControlledProcess},
-	{Name: "PARTICIPATES_IN", From: identity.NodeTypeInterface, To: identity.NodeTypeConnection},
-	{Name: "CONNECTS", From: identity.NodeTypeInterface, To: identity.NodeTypeFunction},
+	rel("HAS_REQUIREMENT", identity.NodeTypeInterface, identity.NodeTypeRequirement),
+	rel("IMPLEMENTS", identity.NodeTypeInterface, identity.NodeTypeControlAlgorithm),
+	rel("IMPLEMENTS", identity.NodeTypeInterface, identity.NodeTypeControlledProcess),
+	rel("ALLOCATED_TO", identity.NodeTypeInterface, identity.NodeTypeElement),
+	rel("CONTAINS", identity.NodeTypeInterface, identity.NodeTypeAsset),
+	rel("PARTICIPATES_IN", identity.NodeTypeInterface, identity.NodeTypeConnection, mayCross(), properties(flowProperties...)),
+	rel("CONNECTS", identity.NodeTypeInterface, identity.NodeTypeFunction, properties(flowProperties...)),
 
-	{Name: "HAS_REQUIREMENT", From: identity.NodeTypeFunction, To: identity.NodeTypeRequirement},
-	{Name: "IMPLEMENTS", From: identity.NodeTypeFunction, To: identity.NodeTypeControlAlgorithm},
-	{Name: "IMPLEMENTS", From: identity.NodeTypeFunction, To: identity.NodeTypeControlledProcess},
-	{Name: "IMPLEMENTS", From: identity.NodeTypeFunction, To: identity.NodeTypeProcessModel},
-	{Name: "FLOWS_TO_FUNCTION", From: identity.NodeTypeFunction, To: identity.NodeTypeFunction, Recursion: RecursionCyclicByDesign},
-	{Name: "FLOWS_TO_INTERFACE", From: identity.NodeTypeFunction, To: identity.NodeTypeInterface},
+	rel("HAS_REQUIREMENT", identity.NodeTypeFunction, identity.NodeTypeRequirement),
+	rel("IMPLEMENTS", identity.NodeTypeFunction, identity.NodeTypeControlAlgorithm),
+	rel("IMPLEMENTS", identity.NodeTypeFunction, identity.NodeTypeControlledProcess),
+	rel("IMPLEMENTS", identity.NodeTypeFunction, identity.NodeTypeProcessModel),
+	rel("FLOWS_TO_FUNCTION", identity.NodeTypeFunction, identity.NodeTypeFunction, recursion(RecursionCyclicByDesign), sameIndexWithException(), properties(flowProperties...)),
+	rel("FLOWS_TO_INTERFACE", identity.NodeTypeFunction, identity.NodeTypeInterface, sameIndexWithException(), properties(flowProperties...)),
+	rel("ALLOCATED_TO", identity.NodeTypeFunction, identity.NodeTypeElement),
+	rel("CONTAINS", identity.NodeTypeFunction, identity.NodeTypeAsset),
 
-	{Name: "HAS_REQUIREMENT", From: identity.NodeTypeElement, To: identity.NodeTypeRequirement},
-	{Name: "CONTAINS", From: identity.NodeTypeElement, To: identity.NodeTypeAsset},
-	{Name: "PARENTS", From: identity.NodeTypeElement, To: identity.NodeTypeSystem, Recursion: RecursionDAG},
+	rel("HAS_REQUIREMENT", identity.NodeTypeElement, identity.NodeTypeRequirement),
+	rel("CONTAINS", identity.NodeTypeElement, identity.NodeTypeAsset),
+	rel("PARENTS", identity.NodeTypeElement, identity.NodeTypeSystem, recursion(RecursionDAG), mayCross()),
 
-	{Name: "HAS_CONSTRAINT", From: identity.NodeTypePurpose, To: identity.NodeTypeConstraint},
-	{Name: "HAS_REQUIREMENT", From: identity.NodeTypePurpose, To: identity.NodeTypeRequirement},
-	{Name: "HAS_VALIDATION", From: identity.NodeTypePurpose, To: identity.NodeTypeValidation},
+	rel("HAS_CONSTRAINT", identity.NodeTypePurpose, identity.NodeTypeConstraint),
+	rel("HAS_REQUIREMENT", identity.NodeTypePurpose, identity.NodeTypeRequirement),
+	rel("HAS_VALIDATION", identity.NodeTypePurpose, identity.NodeTypeValidation),
 
-	{Name: "TRANSITIONS_TO", From: identity.NodeTypeState, To: identity.NodeTypeState, Recursion: RecursionCyclicByDesign},
-	{Name: "HAS_HAZARD", From: identity.NodeTypeState, To: identity.NodeTypeHazard},
-	{Name: "CONTAINS", From: identity.NodeTypeState, To: identity.NodeTypeAsset},
+	rel("TRANSITIONS_TO", identity.NodeTypeState, identity.NodeTypeState, recursion(RecursionCyclicByDesign), sameIndexWithException(), properties(transitionProperties...)),
+	rel("HAS_HAZARD", identity.NodeTypeState, identity.NodeTypeHazard),
+	rel("CONTAINS", identity.NodeTypeState, identity.NodeTypeAsset),
 
-	{Name: "HAS_CONTROL_ALGORITHM", From: identity.NodeTypeControlStructure, To: identity.NodeTypeControlAlgorithm},
-	{Name: "HAS_PROCESS_MODEL", From: identity.NodeTypeControlStructure, To: identity.NodeTypeProcessModel},
-	{Name: "HAS_CONTROLLED_PROCESS", From: identity.NodeTypeControlStructure, To: identity.NodeTypeControlledProcess},
-	{Name: "HAS_CONTROL_ACTION", From: identity.NodeTypeControlStructure, To: identity.NodeTypeControlAction},
-	{Name: "HAS_FEEDBACK", From: identity.NodeTypeControlStructure, To: identity.NodeTypeFeedback},
+	rel("HAS_CONTROL_ALGORITHM", identity.NodeTypeControlStructure, identity.NodeTypeControlAlgorithm),
+	rel("HAS_PROCESS_MODEL", identity.NodeTypeControlStructure, identity.NodeTypeProcessModel),
+	rel("HAS_CONTROLLED_PROCESS", identity.NodeTypeControlStructure, identity.NodeTypeControlledProcess),
+	rel("HAS_CONTROL_ACTION", identity.NodeTypeControlStructure, identity.NodeTypeControlAction),
+	rel("HAS_FEEDBACK", identity.NodeTypeControlStructure, identity.NodeTypeFeedback),
 
-	{Name: "HAS_LOSS", From: identity.NodeTypeAsset, To: identity.NodeTypeLoss},
+	rel("CONTAINS", identity.NodeTypeFunctionalFlow, identity.NodeTypeFunction),
+	rel("CONTAINS", identity.NodeTypeFunctionalFlow, identity.NodeTypeInterface),
+	rel("CONTAINS", identity.NodeTypeFunctionalFlow, identity.NodeTypeConnection),
+	rel("CONTAINS", identity.NodeTypeFunctionalFlow, identity.NodeTypeElement),
+	rel("CONTAINS", identity.NodeTypeFunctionalFlow, identity.NodeTypeAsset),
 
-	{Name: "HAS_CONTROL", From: identity.NodeTypeSecurity, To: identity.NodeTypeControl},
-	{Name: "HAS_COUNTERMEASURE", From: identity.NodeTypeSecurity, To: identity.NodeTypeCountermeasure},
+	rel("HAS_REGIME", identity.NodeTypeAsset, identity.NodeTypeRegime),
+	rel("HAS_LOSS", identity.NodeTypeAsset, identity.NodeTypeLoss),
+	rel("HAS_GOAL", identity.NodeTypeAsset, identity.NodeTypeGoal),
+	rel("DERIVED_FROM", identity.NodeTypeAsset, identity.NodeTypeAsset, recursion(RecursionDAG)),
 
-	{Name: "HAS_REQUIREMENT", From: identity.NodeTypeConstraint, To: identity.NodeTypeRequirement},
-	{Name: "VIOLATES", From: identity.NodeTypeHazard, To: identity.NodeTypeConstraint},
-	{Name: "THREATENS", From: identity.NodeTypeHazard, To: identity.NodeTypeAsset},
-	{Name: "USES_ATTACK", From: identity.NodeTypeHazard, To: identity.NodeTypeAttack},
+	rel("HAS_CONTROL", identity.NodeTypeSecurity, identity.NodeTypeControl),
+	rel("HAS_COUNTERMEASURE", identity.NodeTypeSecurity, identity.NodeTypeCountermeasure),
 
-	{Name: "ENFORCES", From: identity.NodeTypeControl, To: identity.NodeTypeConstraint},
-	{Name: "MITIGATES", From: identity.NodeTypeControl, To: identity.NodeTypeHazard},
+	rel("HAS_REQUIREMENT", identity.NodeTypeConstraint, identity.NodeTypeRequirement),
+	rel("VIOLATES", identity.NodeTypeHazard, identity.NodeTypeConstraint),
+	rel("THREATENS", identity.NodeTypeHazard, identity.NodeTypeAsset),
+	rel("USES_ATTACK", identity.NodeTypeHazard, identity.NodeTypeAttack),
 
-	{Name: "SATISFIES", From: identity.NodeTypeCountermeasure, To: identity.NodeTypeControl},
-	{Name: "HAS_REQUIREMENT", From: identity.NodeTypeCountermeasure, To: identity.NodeTypeRequirement},
-	{Name: "APPLIES_TO_FUNCTION", From: identity.NodeTypeCountermeasure, To: identity.NodeTypeFunction},
-	{Name: "APPLIES_TO_INTERFACE", From: identity.NodeTypeCountermeasure, To: identity.NodeTypeInterface},
-	{Name: "APPLIES_TO_ELEMENT", From: identity.NodeTypeCountermeasure, To: identity.NodeTypeElement},
-	{Name: "APPLIES_TO_STATE", From: identity.NodeTypeCountermeasure, To: identity.NodeTypeState},
-	{Name: "APPLIES_TO_FEEDBACK", From: identity.NodeTypeCountermeasure, To: identity.NodeTypeFeedback},
-	{Name: "BLOCKS", From: identity.NodeTypeCountermeasure, To: identity.NodeTypeAttack},
+	rel("ENFORCES", identity.NodeTypeControl, identity.NodeTypeConstraint),
+	rel("MITIGATES", identity.NodeTypeControl, identity.NodeTypeHazard),
 
-	{Name: "PARENTS", From: identity.NodeTypeRequirement, To: identity.NodeTypeRequirement, Recursion: RecursionDAG},
-	{Name: "VERIFIED_BY", From: identity.NodeTypeRequirement, To: identity.NodeTypeVerification},
+	rel("SATISFIES", identity.NodeTypeCountermeasure, identity.NodeTypeControl),
+	rel("HAS_REQUIREMENT", identity.NodeTypeCountermeasure, identity.NodeTypeRequirement),
+	rel("APPLIES_TO_FUNCTION", identity.NodeTypeCountermeasure, identity.NodeTypeFunction, sameIndexWithException()),
+	rel("APPLIES_TO_INTERFACE", identity.NodeTypeCountermeasure, identity.NodeTypeInterface, sameIndexWithException()),
+	rel("APPLIES_TO_ELEMENT", identity.NodeTypeCountermeasure, identity.NodeTypeElement, sameIndexWithException()),
+	rel("APPLIES_TO_STATE", identity.NodeTypeCountermeasure, identity.NodeTypeState, sameIndexWithException()),
+	rel("APPLIES_TO_FEEDBACK", identity.NodeTypeCountermeasure, identity.NodeTypeFeedback),
+	rel("BLOCKS", identity.NodeTypeCountermeasure, identity.NodeTypeAttack),
 
-	{Name: "GENERATES", From: identity.NodeTypeControlAlgorithm, To: identity.NodeTypeControlAction},
-	{Name: "CAUSES", From: identity.NodeTypeControlAction, To: identity.NodeTypeHazard},
-	{Name: "COMMANDS", From: identity.NodeTypeControlAction, To: identity.NodeTypeControlledProcess},
-	{Name: "PRODUCES", From: identity.NodeTypeControlledProcess, To: identity.NodeTypeFeedback},
-	{Name: "INFORMS", From: identity.NodeTypeFeedback, To: identity.NodeTypeProcessModel},
-	{Name: "TUNES", From: identity.NodeTypeProcessModel, To: identity.NodeTypeControlAlgorithm},
+	rel("PARENTS", identity.NodeTypeRequirement, identity.NodeTypeRequirement, recursion(RecursionDAG), mayCross()),
+	rel("VERIFIED_BY", identity.NodeTypeRequirement, identity.NodeTypeVerification),
 
-	{Name: "HAS_ENVIRONMENT", From: identity.NodeTypeLoss, To: identity.NodeTypeEnvironment},
-	{Name: "HAS_ELEMENT", From: identity.NodeTypeLoss, To: identity.NodeTypeElement},
-	{Name: "HAS_STATE", From: identity.NodeTypeLoss, To: identity.NodeTypeState},
-	{Name: "HAS_ATTACK", From: identity.NodeTypeLoss, To: identity.NodeTypeAttack},
-	{Name: "HAS_COUNTERMEASURE", From: identity.NodeTypeLoss, To: identity.NodeTypeCountermeasure},
+	rel("GENERATES", identity.NodeTypeControlAlgorithm, identity.NodeTypeControlAction, recursion(RecursionCyclicByDesign)),
+	rel("CAUSES", identity.NodeTypeControlAction, identity.NodeTypeHazard),
+	rel("COMMANDS", identity.NodeTypeControlAction, identity.NodeTypeControlledProcess, recursion(RecursionCyclicByDesign)),
+	rel("PRODUCES", identity.NodeTypeControlledProcess, identity.NodeTypeFeedback, recursion(RecursionCyclicByDesign)),
+	rel("INFORMS", identity.NodeTypeFeedback, identity.NodeTypeProcessModel, recursion(RecursionCyclicByDesign)),
+	rel("TUNES", identity.NodeTypeProcessModel, identity.NodeTypeControlAlgorithm, recursion(RecursionCyclicByDesign)),
 
-	{Name: "DEFEATS", From: identity.NodeTypeAttack, To: identity.NodeTypeCountermeasure},
-	{Name: "EXPLOITS", From: identity.NodeTypeAttack, To: identity.NodeTypeElement},
+	rel("HAS_ENVIRONMENT", identity.NodeTypeLoss, identity.NodeTypeEnvironment),
+	rel("HAS_ELEMENT", identity.NodeTypeLoss, identity.NodeTypeElement),
+	rel("HAS_STATE", identity.NodeTypeLoss, identity.NodeTypeState),
+	rel("HAS_ATTACK", identity.NodeTypeLoss, identity.NodeTypeAttack),
+	rel("HAS_COUNTERMEASURE", identity.NodeTypeLoss, identity.NodeTypeCountermeasure),
+
+	rel("DEFEATS", identity.NodeTypeAttack, identity.NodeTypeCountermeasure),
+	rel("EXPLOITS", identity.NodeTypeAttack, identity.NodeTypeElement),
+
+	rel("SUPPORTED_BY", identity.NodeTypeGoal, identity.NodeTypeGoal, recursion(RecursionDAG)),
+	rel("SUPPORTED_BY", identity.NodeTypeGoal, identity.NodeTypeStrategy, recursion(RecursionDAG)),
+	rel("SUPPORTED_BY", identity.NodeTypeGoal, identity.NodeTypeSolution, recursion(RecursionDAG)),
+	rel("IN_CONTEXT_OF", identity.NodeTypeGoal, identity.NodeTypeContext),
+	rel("IN_CONTEXT_OF", identity.NodeTypeGoal, identity.NodeTypeJustification),
+	rel("IN_CONTEXT_OF", identity.NodeTypeGoal, identity.NodeTypeAssumption),
+	rel("SUPPORTED_BY", identity.NodeTypeStrategy, identity.NodeTypeGoal, recursion(RecursionDAG)),
+	rel("SUPPORTED_BY", identity.NodeTypeStrategy, identity.NodeTypeSolution, recursion(RecursionDAG)),
+	rel("IN_CONTEXT_OF", identity.NodeTypeStrategy, identity.NodeTypeContext),
+	rel("IN_CONTEXT_OF", identity.NodeTypeStrategy, identity.NodeTypeJustification),
+	rel("IN_CONTEXT_OF", identity.NodeTypeStrategy, identity.NodeTypeAssumption),
+	rel("HAS_ENVIRONMENT", identity.NodeTypeContext, identity.NodeTypeEnvironment),
+	rel("HAS_VALIDATION", identity.NodeTypeSolution, identity.NodeTypeValidation),
+	rel("HAS_VERIFICATION", identity.NodeTypeSolution, identity.NodeTypeVerification),
+	rel("HAS_LOSS", identity.NodeTypeSolution, identity.NodeTypeLoss),
 }

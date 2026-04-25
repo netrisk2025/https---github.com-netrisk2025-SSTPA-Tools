@@ -16,6 +16,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	"sstpa-tool/backend/internal/assets"
 	"sstpa-tool/backend/internal/graph"
 	"sstpa-tool/backend/internal/identity"
 	"sstpa-tool/backend/internal/messaging"
@@ -28,10 +29,72 @@ var mutationTracer trace.Tracer
 // every Apply call's write transaction. Passing nil disables tracing.
 func SetTracer(tracer trace.Tracer) { mutationTracer = tracer }
 
+func validationOptions(options ApplyOptions) ValidationOptions {
+	return ValidationOptions{
+		AllowLegacyRelationshipAliases: options.AllowLegacyRelationshipAliases,
+		AllowLegacyPropertyAliases:     options.AllowLegacyPropertyAliases,
+	}
+}
+
+func normalizePlanForApply(options ApplyOptions, plan Plan) (Plan, error) {
+	normalized := Plan{Operations: make([]Operation, len(plan.Operations))}
+	for index, operation := range plan.Operations {
+		operation.Properties = copyProperties(operation.Properties)
+		operation.RelationshipProperties = copyProperties(operation.RelationshipProperties)
+
+		if options.AllowLegacyRelationshipAliases && operation.Kind == OperationCreateRelationship {
+			if _, canonicalName, ok := graph.LookupRelationshipWithLegacyAliases(operation.RelationshipName, operation.FromType, operation.ToType, true); ok {
+				operation.RelationshipName = canonicalName
+			}
+		}
+
+		if options.AllowLegacyPropertyAliases {
+			normalizeLegacyPropertyAliases(operation.Properties)
+		}
+
+		normalized.Operations[index] = operation
+	}
+
+	return normalized, nil
+}
+
+func copyProperties(input map[string]any) map[string]any {
+	if input == nil {
+		return nil
+	}
+
+	output := make(map[string]any, len(input))
+	for key, value := range input {
+		output[key] = value
+	}
+
+	return output
+}
+
+func normalizeLegacyPropertyAliases(properties map[string]any) {
+	if properties == nil {
+		return
+	}
+
+	value, ok := properties["Baron"]
+	if !ok {
+		return
+	}
+	if _, exists := properties["Barren"]; !exists {
+		properties["Barren"] = value
+	}
+	delete(properties, "Baron")
+}
+
 func Apply(ctx context.Context, driver neo4j.DriverWithContext, options ApplyOptions, plan Plan) (CommitReport, error) {
-	if err := plan.Validate(); err != nil {
+	normalizedPlan, err := normalizePlanForApply(options, plan)
+	if err != nil {
 		return CommitReport{}, err
 	}
+	if err := normalizedPlan.ValidateWithOptions(validationOptions(options)); err != nil {
+		return CommitReport{}, err
+	}
+	plan = normalizedPlan
 
 	if options.Actor.Name == "" || options.Actor.Email == "" {
 		return CommitReport{}, fmt.Errorf("actor name and email are required")
@@ -68,17 +131,28 @@ func Apply(ctx context.Context, driver neo4j.DriverWithContext, options ApplyOpt
 			}
 		}
 
-		allHIDs := allOperationHIDs(plan)
+		generated, err := assets.EnsureLossGoalPairs(ctx, tx, assets.GenerationInput{
+			Actor:     options.Actor,
+			Now:       now,
+			VersionID: options.VersionID,
+			AssetHIDs: touchedAssetHIDs(plan),
+		})
+		if err != nil {
+			return CommitReport{}, err
+		}
+		effectivePlan := planWithGenerated(plan, generated)
+
+		allHIDs := allOperationHIDs(effectivePlan)
 		after, err := readSnapshot(ctx, tx, allHIDs)
 		if err != nil {
 			return CommitReport{}, err
 		}
 
-		affected := ComputeAffected(plan, before, after)
+		affected := ComputeAffected(effectivePlan, before, after)
 		report := CommitReport{
 			CommitID:             commitID,
 			NodesChanged:         affectedHIDs(affected),
-			RelationshipsChanged: relationshipChanges(plan),
+			RelationshipsChanged: relationshipChanges(effectivePlan),
 		}
 
 		recipients, err := notifyAffectedOwners(ctx, tx, options.Actor, commitID, now, affected, before, after, report.RelationshipsChanged)
@@ -197,35 +271,47 @@ func createRelationship(ctx context.Context, tx neo4j.ManagedTransaction, operat
 		return fmt.Errorf("relationship %s from %s to %s is not allowed", operation.RelationshipName, operation.FromType, operation.ToType)
 	}
 
+	props := graph.DefaultRelationshipProperties(relationship)
+	for key, value := range operation.RelationshipProperties {
+		props[key] = normalizePropertyValue(value)
+	}
+	if err := graph.ValidateRelationshipProperties(relationship, props); err != nil {
+		return err
+	}
+	if err := graph.ValidateSoIBoundary(relationship, operation.FromHID, operation.ToHID, props); err != nil {
+		return err
+	}
+
 	if relationship.Recursion == graph.RecursionDAG {
-		if err := rejectCycle(ctx, tx, operation); err != nil {
+		if err := rejectCycle(ctx, tx, operation, relationship); err != nil {
 			return err
 		}
 	}
+	if err := validateRelationshipSpecificRules(ctx, tx, operation, relationship); err != nil {
+		return err
+	}
+
+	fromLabel, _ := graph.LabelFor(operation.FromType)
+	toLabel, _ := graph.LabelFor(operation.ToType)
 
 	existsQuery := fmt.Sprintf(`
-MATCH (from {HID: $fromHID})-[r:%s]->(to {HID: $toHID})
+MATCH (from:%s:SSTPANode {HID: $fromHID})-[r:%s]->(to:%s:SSTPANode {HID: $toHID})
 RETURN count(r) AS count
-`, relationship.Name)
+`, fromLabel, relationship.Name, toLabel)
 	existing, err := scalarInt(ctx, tx, existsQuery, map[string]any{"fromHID": operation.FromHID, "toHID": operation.ToHID})
 	if err != nil {
 		return err
 	}
-	if existing > 0 {
+	if existing > 0 && !relationship.AllowMultiplicity {
 		return fmt.Errorf("duplicate relationship %s from %s to %s", relationship.Name, operation.FromHID, operation.ToHID)
 	}
 
-	props := map[string]any{}
-	for key, value := range operation.RelationshipProperties {
-		props[key] = normalizePropertyValue(value)
-	}
-
 	createQuery := fmt.Sprintf(`
-MATCH (from {HID: $fromHID}), (to {HID: $toHID})
+MATCH (from:%s:SSTPANode {HID: $fromHID}), (to:%s:SSTPANode {HID: $toHID})
 CREATE (from)-[r:%s]->(to)
 SET r = $props
 RETURN type(r) AS type
-`, relationship.Name)
+`, fromLabel, toLabel, relationship.Name)
 	result, err := tx.Run(ctx, createQuery, map[string]any{
 		"fromHID": operation.FromHID,
 		"toHID":   operation.ToHID,
@@ -239,18 +325,44 @@ RETURN type(r) AS type
 	return err
 }
 
-func rejectCycle(ctx context.Context, tx neo4j.ManagedTransaction, operation Operation) error {
+func rejectCycle(ctx context.Context, tx neo4j.ManagedTransaction, operation Operation, relationship graph.Relationship) error {
 	query := fmt.Sprintf(`
 MATCH (from {HID: $fromHID}), (to {HID: $toHID})
-OPTIONAL MATCH path = (to)-[:%s*1..50]->(from)
+OPTIONAL MATCH path = (to)-[:%s*1..%d]->(from)
 RETURN count(path) AS count
-`, operation.RelationshipName)
+`, operation.RelationshipName, graph.TraversalMaxDepth(relationship))
 	count, err := scalarInt(ctx, tx, query, map[string]any{"fromHID": operation.FromHID, "toHID": operation.ToHID})
 	if err != nil {
 		return err
 	}
 	if count > 0 {
 		return fmt.Errorf("relationship %s would introduce a cycle", operation.RelationshipName)
+	}
+
+	return nil
+}
+
+func validateRelationshipSpecificRules(ctx context.Context, tx neo4j.ManagedTransaction, operation Operation, relationship graph.Relationship) error {
+	if relationship.Name != "DERIVED_FROM" || relationship.From != identity.NodeTypeAsset || relationship.To != identity.NodeTypeAsset {
+		return nil
+	}
+
+	result, err := tx.Run(ctx, `
+MATCH (target:Asset:SSTPANode {HID: $toHID})
+RETURN target.IsPrimary AS isPrimary, target.AssetType AS assetType
+`, map[string]any{"toHID": operation.ToHID})
+	if err != nil {
+		return err
+	}
+	record, err := result.Single(ctx)
+	if err != nil {
+		return fmt.Errorf("DERIVED_FROM target asset %s was not found", operation.ToHID)
+	}
+
+	isPrimary, _ := record.Get("isPrimary")
+	assetType, _ := record.Get("assetType")
+	if !truthy(isPrimary) && !strings.EqualFold(stringValue(assetType), "PRIMARY") {
+		return fmt.Errorf("DERIVED_FROM target asset %s must be PRIMARY", operation.ToHID)
 	}
 
 	return nil
@@ -492,6 +604,45 @@ func relationshipChanges(plan Plan) []string {
 	return uniqueStrings(names)
 }
 
+func touchedAssetHIDs(plan Plan) []string {
+	var hids []string
+	for _, operation := range plan.Operations {
+		switch operation.Kind {
+		case OperationCreateNode, OperationUpdateNode:
+			if operation.NodeType == identity.NodeTypeAsset {
+				hids = append(hids, operation.HID)
+			}
+		}
+	}
+
+	return uniqueStrings(hids)
+}
+
+func planWithGenerated(plan Plan, generated assets.GenerationReport) Plan {
+	if len(generated.CreatedNodes) == 0 && len(generated.CreatedRelationships) == 0 {
+		return plan
+	}
+
+	effective := Plan{Operations: append([]Operation(nil), plan.Operations...)}
+	for _, node := range generated.CreatedNodes {
+		effective.Operations = append(effective.Operations, Operation{
+			Kind:     OperationCreateNode,
+			NodeType: node.NodeType,
+			HID:      node.HID,
+		})
+	}
+	for _, relationship := range generated.CreatedRelationships {
+		effective.Operations = append(effective.Operations, Operation{
+			Kind:             OperationCreateRelationship,
+			RelationshipName: relationship.Name,
+			FromHID:          relationship.FromHID,
+			ToHID:            relationship.ToHID,
+		})
+	}
+
+	return effective
+}
+
 func uniqueStrings(values []string) []string {
 	seen := map[string]struct{}{}
 	var unique []string
@@ -512,4 +663,15 @@ func uniqueStrings(values []string) []string {
 func stringValue(value any) string {
 	text, _ := value.(string)
 	return text
+}
+
+func truthy(value any) bool {
+	switch typed := value.(type) {
+	case bool:
+		return typed
+	case string:
+		return strings.EqualFold(typed, "true") || strings.EqualFold(typed, "primary")
+	default:
+		return false
+	}
 }

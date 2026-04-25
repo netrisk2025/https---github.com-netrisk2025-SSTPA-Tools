@@ -1,15 +1,16 @@
 # SSTPA Tool
 
 ## Source Of Truth
-- `SSTPA Tool SRS V56.md` is the governing specification for this project.
+- `docs/srs/SSTPA Tool SRS V58.md` is the governing specification for this project and is treated as intended version 0.5.8 despite the current 0.5.7 header.
 - Treat every `shall` as mandatory and every `should` as mandatory unless the user explicitly approves a deferral.
 - For any non-trivial task, identify the governing SRS sections before editing and mention them in the final summary, commit notes, or PR summary.
 - If the SRS is ambiguous, internally inconsistent, or appears to conflict with prior code, ask one focused question instead of guessing.
 - Sections described as placeholder or future-version work require explicit confirmation before implementation.
 
 ## Spec Status
-- `docs/srs/source/SSTPA Tool SRS V56.md` is the current upstream draft.
-- The SRS is being reorganized. Treat it as authoritative background, but route active implementation planning through the approved requirement set in `docs/verification/shall-register.md` when entries exist.
+- `docs/srs/SSTPA Tool SRS V58.md` is the current upstream draft.
+- Prior SRS baselines in `docs/srs/archive/` are historical context only.
+- Use `docs/verification/SSTPA_SHALL_Requirements.md` as the consolidated V58 SHALL reference for migration testing, and route active implementation tracking through `docs/verification/shall-register.md` when entries exist.
 - Do not invent new mandatory requirements. If the draft SRS, approved SHALL register, and code disagree, stop and ask one focused question unless a repo document explicitly states it supersedes the draft.
 - Placeholder or future-version sections still require explicit confirmation before implementation.
 
@@ -60,7 +61,7 @@
 - Run the automated verification set: `make verify`
 
 ## Verification Workflow
-- First reduce or clarify the active SHALL set in `docs/verification/shall-register.md` when the user is refining scope.
+- First reduce or clarify the active SHALL set in `docs/verification/shall-register.md` when the user is refining scope, using `docs/verification/SSTPA_SHALL_Requirements.md` as the V58 source reference.
 - For any implemented requirement slice, update or reference `docs/verification/verification-matrix.md`.
 - Prefer focused automated tests over broad placeholders.
 - Use OpenCode subagents for targeted review and verification:

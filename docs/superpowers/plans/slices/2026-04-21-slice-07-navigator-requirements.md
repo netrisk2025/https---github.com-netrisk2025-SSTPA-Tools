@@ -9,7 +9,7 @@
 **Pre-reads:**
 - SRS §3.4.1 Navigator Tool (all subsections, esp. 3.4.1.x Clone Modes and 3.4.1 constraints)
 - SRS §3.4.2 Requirements Tool (all subsections)
-- SRS §3.4.3.3 Requirement Traceability Gap Analysis (feeds the tool's "Orphan"/"Baron" flags)
+- SRS §3.4.3.3 Requirement Traceability Gap Analysis (feeds the tool's `Orphan`/`Barren` flags; legacy `Baron` is normalized only at import/migration boundaries)
 - SRS §6.2 UI Tech Stack (Cytoscape scope; AG Grid scope)
 - S06 outputs
 - Conventions doc.
@@ -74,7 +74,7 @@ Difficulty: high · Integration Checkpoint: yes · Files: extend tool + backend 
 
 ### S07-T13: Requirements Traceability Matrix (AG Grid)
 Difficulty: medium · Files: `addons/requirements/src/matrix/**`; library addition approval for `ag-grid-community` + `ag-grid-react`.
-**Agent Briefing:** Traceability matrix columns: Requirement HID/Name/Status, Allocated-To HIDs, Verifications, Validations, Orphan/Baron flags per SRS §3.4.3.3. Exportable per tool subsection.
+**Agent Briefing:** Traceability matrix columns: Requirement HID/Name/Status, Allocated-To HIDs, Verifications, Validations, Orphan/Barren flags per SRS §3.4.3.3. Exportable per tool subsection.
 
 ### S07-T14: Requirements Tool — SysML 2 export (PNG/SVG/PDF)
 Difficulty: medium · Files: extend tool.

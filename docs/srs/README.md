@@ -1,12 +1,13 @@
 # SRS Workflow
 
-The copy in `source/SSTPA Tool SRS V56.md` is the current upstream draft imported into this repository so work can proceed inside the repo root.
+`SSTPA Tool SRS V58.md` is the authoritative SRS for current development and is treated as intended version 0.5.8 even though its document header still says 0.5.7.
 
-Because the draft is being reorganized, use the following workflow:
+Prior SRS baselines are archived in `archive/` and may be used only as historical context. Do not use archived SRS files to override V58 behavior.
 
-1. Start from the source draft.
-2. Reduce or clarify the active SHALL set in `../verification/shall-register.md`.
-3. Map accepted SHALL statements to automated or manual verification in `../verification/verification-matrix.md`.
-4. Only then treat a requirement slice as ready for implementation.
+Use the following workflow:
 
-Future reorganized SRS slices can live alongside the imported draft once the source document is split.
+1. Start from `SSTPA Tool SRS V58.md`.
+2. Use `../verification/SSTPA_SHALL_Requirements.md` as the consolidated V58 SHALL reference when testing functionality.
+3. Keep `../verification/shall-register.md` as the curated implementation/verification tracking register.
+4. Map accepted SHALL statements to automated or manual verification in `../verification/verification-matrix.md`.
+5. Document V58 editorial assumptions in `srs-v58-migration-notes.md` instead of blocking implementation on obvious non-behavioral issues.

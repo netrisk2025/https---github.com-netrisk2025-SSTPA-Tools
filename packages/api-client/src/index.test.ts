@@ -47,6 +47,45 @@ describe("SSTPAClient", () => {
     ).rejects.toEqual(new APIError(400, "invalid relationship"))
   })
 
+  it("creates a child System from an Element with actor context", async () => {
+    const requests: Request[] = []
+    const client = new SSTPAClient({
+      baseUrl: "http://localhost:8080/api/v1/",
+      actor: { name: "Alice", email: "alice@example.test" },
+      fetchImpl: async (input, init) => {
+        requests.push(new Request(input, init))
+        return Response.json(
+          {
+            commitId: "commit-system",
+            nodesChanged: ["SYS_1.4_0"],
+            relationshipsChanged: ["PARENTS"],
+            messagesGenerated: 0,
+            recipientsNotified: [],
+            systemHid: "SYS_1.4_0",
+            purposeHid: "PUR_1.4_1",
+            environmentHid: "ENV_1.4_1",
+            stateHid: "ST_1.4_1",
+            securityHid: "SEC_1.4_1",
+            functionalFlowHid: "FF_1.4_1",
+            requirementHids: ["REQ_1.4_1"],
+            assetHids: ["AST_1.4_1"],
+          },
+          { status: 201 },
+        )
+      },
+    })
+
+    const created = await client.createSystemFromElement({ elementHid: "EL_1_4" })
+
+    expect(created.systemHid).toBe("SYS_1.4_0")
+    expect(requests[0].url).toBe("http://localhost:8080/api/v1/system-creation/from-element")
+    expect(requests[0].headers.get("X-SSTPA-User-Email")).toBe("alice@example.test")
+    await expect(requests[0].json()).resolves.toMatchObject({
+      actor: { name: "Alice", email: "alice@example.test" },
+      elementHid: "EL_1_4",
+    })
+  })
+
   it("creates a user and lists registered users", async () => {
     const requests: Request[] = []
     const client = new SSTPAClient({
