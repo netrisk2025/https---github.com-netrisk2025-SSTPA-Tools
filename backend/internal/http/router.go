@@ -9,13 +9,20 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"go.opentelemetry.io/otel/trace"
+
+	"sstpa-tool/backend/internal/onboarding"
+	"sstpa-tool/backend/internal/telemetry"
 )
 
 type RouterOptions struct {
 	Version      string
 	Driver       neo4j.DriverWithContext
 	DatabaseName string
+	Tracer       trace.Tracer
+	Metrics      *telemetry.Metrics
 }
 
 func NewRouter(version string) http.Handler {
@@ -25,7 +32,24 @@ func NewRouter(version string) http.Handler {
 func NewRouterWithOptions(options RouterOptions) http.Handler {
 	api := newAPI(options)
 	router := chi.NewRouter()
+
+	if options.Metrics != nil || options.Tracer != nil {
+		router.Use(telemetry.Middleware(telemetry.MiddlewareOptions{
+			Tracer:  options.Tracer,
+			Metrics: options.Metrics,
+		}))
+	}
+	router.Use(chimw.Recoverer)
+
 	router.Get("/healthz", healthHandler(api.version))
+	// /metrics is intentionally unauthenticated because the deployment
+	// contract (SRS §2.2 diagram) puts Caddy in front of the backend and
+	// the backend bolt/HTTP ports stay on the private Docker network.
+	// The Caddyfile must not expose /metrics externally.
+	if options.Metrics != nil {
+		router.Handle("/metrics", options.Metrics.Handler())
+	}
+
 	router.Route("/api/v1", func(group chi.Router) {
 		group.Get("/health", healthHandler(api.version))
 		group.Get("/openapi.yaml", api.openapiHandler)
@@ -58,6 +82,14 @@ func NewRouterWithOptions(options RouterOptions) http.Handler {
 		group.Get("/references/assignments/{sourceHID}", api.listReferenceAssignmentsHandler)
 		group.Post("/references/assignments", api.createReferenceAssignmentHandler)
 		group.Delete("/references/assignments", api.deleteReferenceAssignmentHandler)
+
+		group.Post("/onboarding/bootstrap", api.bootstrapInstallerHandler)
+		group.Get("/users", api.listOnboardingHandler(onboarding.UserKind))
+		group.Post("/users", api.createOnboardingHandler(onboarding.UserKind))
+		group.Get("/users/{uuid}", api.getOnboardingHandler(onboarding.UserKind))
+		group.Get("/admins", api.listOnboardingHandler(onboarding.AdminKind))
+		group.Post("/admins", api.createOnboardingHandler(onboarding.AdminKind))
+		group.Get("/admins/{uuid}", api.getOnboardingHandler(onboarding.AdminKind))
 	})
 
 	return router

@@ -521,6 +521,11 @@ ControlledProcess CP
 Hazard HAZ
 Loss LOS
 Attack ATK
+SSTPA_Tool SST
+UserRegistry URG
+AdminRegistry ARG
+User USR
+Admin ADM
 
 
 #### 1.3.6.2  Index
@@ -528,6 +533,8 @@ The index uniquely identifies the Sub-graph a Node belongs to and is constructed
 
 The Index will be unique for each sub-graph and every node in the sub-graph will have the same Index.
 The Index for the Capability shall be null as the data set only contains one capability whose only purpose is to attach tier 1 systems.  
+
+Tool Data nodes do not belong to a System of Interest sub-graph and SHALL use the global empty-index HID convention.  The singleton Tool Data nodes SHALL use SST__1 for (:SSTPA_Tool), URG__1 for (:UserRegistry), and ARG__1 for (:AdminRegistry).  Registered User and Admin nodes SHALL use USR__{SEQUENCE} and ADM__{SEQUENCE} respectively.
 
 When a node is created it shall inherit the Index of the sub-graph it belongs to excepting (:System) nodes.
 
@@ -1005,6 +1012,7 @@ SSTPA Tools is intended to support a large dispersed engineering team. In this i
 Tool Data Model consists of utility information for SSTPA Tools maintained by the backend.  It consists of:
 Data on the SSTPA Tool: (:SSTPA_Tool)
 Tool Data will parent a single node SSTPA Tools Data which shall have properties typical of a commercial software installation to include the license.
+The SSTPA Tool Data root SHALL be represented as a singular (:SSTPA_Tool) node with Name "SSTPA Tools Data".  The nodes called "Users" and "Admins" below are singular registry nodes represented by labels (:UserRegistry) and (:AdminRegistry), with Name values "Users" and "Admins" respectively.  "Users" and "Admins" SHALL NOT be used as plural Neo4j labels.
 Data on Users: (:User)
 Users can own data and edit properties identified with "edit".
 Data on Admins (:Admin)
@@ -1022,10 +1030,10 @@ When invoking the SSTPA Tool, it shall present a login window asking for User Na
 On installation of SSTPA Tools it will have , the "Installer" shall be required to provide an Admin email and establish a user account.  Admin cannot own data but can edit data and certain elements of data are fixed for normal users can be edited by Admin.  These properties are explicitly identified.
 All users will "login" to the system as either an existing User or a new User.  If new User they will setup a User account.  Per the initial security model, no password or authentication will be used.
 
-Tool Data will parent a single node called Admins and nodes associated with each registered Admin will be a child of the Admins node with properties describing the Admin
+Tool Data will parent a single AdminRegistry node called Admins and nodes associated with each registered Admin will be a child of the AdminRegistry node with properties describing the Admin.
 
 ### 1.4.3 User Data
-Tool Data will parent a single node called Users and nodes associated with each registered user will be a child of the Users node with properties describing the User
+Tool Data will parent a single UserRegistry node called Users and nodes associated with each registered user will be a child of the UserRegistry node with properties describing the User.
 
 
 ### 1.4.4 Messaging Data Model 

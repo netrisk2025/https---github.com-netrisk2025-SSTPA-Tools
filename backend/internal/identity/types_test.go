@@ -32,9 +32,10 @@ func TestTypeIDUnknown(t *testing.T) {
 	}
 }
 
-func TestAllTypesCountMatchesSRS(t *testing.T) {
-	if got := len(AllTypes()); got != 27 {
-		t.Fatalf("expected 27 node types per SRS §1.3.6.1, got %d", got)
+func TestAllTypesCountCoversCoreAndToolData(t *testing.T) {
+	// 27 Core Data Model types (SRS §1.3.6.1) + 5 Tool Data types (SRS §1.4).
+	if got := len(AllTypes()); got != 32 {
+		t.Fatalf("expected 32 node types (27 Core + 5 Tool Data), got %d", got)
 	}
 }
 
@@ -45,5 +46,22 @@ func TestIsValidTypeID(t *testing.T) {
 
 	if IsValidTypeID("NOPE") {
 		t.Fatal("NOPE must not be valid")
+	}
+}
+
+func TestToolDataTypeIDs(t *testing.T) {
+	cases := map[NodeType]string{
+		NodeTypeSSTPATool:     "SST",
+		NodeTypeUserRegistry:  "URG",
+		NodeTypeAdminRegistry: "ARG",
+		NodeTypeUser:          "USR",
+		NodeTypeAdmin:         "ADM",
+	}
+
+	for nodeType, want := range cases {
+		got, ok := TypeID(nodeType)
+		if !ok || got != want {
+			t.Errorf("TypeID(%q) = (%q, %v), want (%q, true)", nodeType, got, ok, want)
+		}
 	}
 }

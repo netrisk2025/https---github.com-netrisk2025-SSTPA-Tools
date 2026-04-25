@@ -17,6 +17,7 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 
 	"sstpa-tool/backend/internal/schema"
+	"sstpa-tool/backend/internal/telemetry"
 	"sstpa-tool/backend/internal/testhelpers"
 )
 
@@ -277,4 +278,43 @@ CREATE (:ReferenceItem:AttackTechnique {
 
 type fakeConfiguredDriver struct {
 	neo4j.DriverWithContext
+}
+
+func TestOpenAPIIncludesUserAndAdminPaths(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/openapi.yaml", nil)
+	recorder := httptest.NewRecorder()
+
+	NewRouter("test").ServeHTTP(recorder, request)
+
+	for _, want := range []string{"/users:", "/users/{uuid}:", "/admins:", "/admins/{uuid}:"} {
+		if !strings.Contains(recorder.Body.String(), want) {
+			t.Fatalf("expected OpenAPI spec to declare %q", want)
+		}
+	}
+}
+
+func TestRouterServesMetricsEndpoint(t *testing.T) {
+	metrics := telemetry.NewMetrics()
+	router := NewRouterWithOptions(RouterOptions{Version: "test", Metrics: metrics})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), "sstpa_http_inflight_requests") {
+		t.Fatalf("expected sstpa metrics in body, got:\n%s", recorder.Body.String())
+	}
+}
+
+func TestRouterOmitsMetricsEndpointWhenUnconfigured(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	NewRouter("test").ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 when Metrics is nil, got %d", recorder.Code)
+	}
 }

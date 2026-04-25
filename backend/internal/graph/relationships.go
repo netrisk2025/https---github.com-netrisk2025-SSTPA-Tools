@@ -42,6 +42,11 @@ func LookupRelationship(name string, from identity.NodeType, to identity.NodeTyp
 }
 
 var relationshipCatalog = []Relationship{
+	{Name: "HAS_USER_REGISTRY", From: identity.NodeTypeSSTPATool, To: identity.NodeTypeUserRegistry},
+	{Name: "HAS_ADMIN_REGISTRY", From: identity.NodeTypeSSTPATool, To: identity.NodeTypeAdminRegistry},
+	{Name: "HAS_USER", From: identity.NodeTypeUserRegistry, To: identity.NodeTypeUser},
+	{Name: "HAS_ADMIN", From: identity.NodeTypeAdminRegistry, To: identity.NodeTypeAdmin},
+
 	{Name: "HAS_SYSTEM", From: identity.NodeTypeCapability, To: identity.NodeTypeSystem},
 	{Name: "HAS_REQUIREMENT", From: identity.NodeTypeCapability, To: identity.NodeTypeRequirement},
 	{Name: "HAS_SYSTEM", From: identity.NodeTypeSandbox, To: identity.NodeTypeSystem},

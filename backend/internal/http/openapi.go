@@ -161,6 +161,85 @@ paths:
     delete:
       responses:
         "200": { description: Transactional reference assignment removal. }
+  /onboarding/bootstrap:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [installerName, installerEmail]
+              properties:
+                installerName: { type: string }
+                installerEmail: { type: string, format: email }
+      responses:
+        "201": { description: First-run installer admin and user records. }
+        "409": { description: An Admin or User is already registered. }
+  /users:
+    get:
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+      responses:
+        "200": { description: Paginated registered users. }
+    post:
+      responses:
+        "201": { description: Newly registered user. }
+        "409": { description: User email already registered. }
+  /users/{uuid}:
+    get:
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Registered user. }
+        "404": { description: User not found. }
+  /admins:
+    get:
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+      responses:
+        "200": { description: Paginated registered admins. }
+    post:
+      parameters:
+        - name: X-SSTPA-User
+          in: header
+          required: true
+          schema: { type: string }
+        - name: X-SSTPA-User-Email
+          in: header
+          required: true
+          schema: { type: string, format: email }
+        - name: X-SSTPA-Admin
+          in: header
+          required: true
+          schema: { type: string, enum: ["true"] }
+      responses:
+        "201": { description: Newly registered admin. }
+        "403": { description: Registered Admin actor required. }
+        "409": { description: Admin email already registered. }
+  /admins/{uuid}:
+    get:
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Registered admin. }
+        "404": { description: Admin not found. }
 components:
   schemas:
     CommitReport:

@@ -14,8 +14,10 @@ import (
 
 	"sstpa-tool/backend/internal/config"
 	apihttp "sstpa-tool/backend/internal/http"
+	"sstpa-tool/backend/internal/mutation"
 	"sstpa-tool/backend/internal/neo4jx"
 	"sstpa-tool/backend/internal/schema"
+	"sstpa-tool/backend/internal/telemetry"
 	"sstpa-tool/backend/internal/version"
 )
 
@@ -45,9 +47,38 @@ func main() {
 		slog.Info("neo4j disabled; set SSTPA_NEO4J_URI to enable graph persistence")
 	}
 
+	var metrics *telemetry.Metrics
+	if cfg.MetricsEnabled {
+		metrics = telemetry.NewMetrics()
+	}
+
+	tracerProvider, err := telemetry.NewTracerProvider(ctx, telemetry.TracerOptions{
+		Enabled:      cfg.TracingEnabled,
+		OTLPEndpoint: cfg.OTLPEndpoint,
+		ServiceName:  cfg.ServiceName,
+	})
+	if err != nil {
+		slog.Error("telemetry bootstrap failed", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := tracerProvider.Shutdown(context.Background()); err != nil {
+			slog.Error("telemetry shutdown failed", "error", err)
+		}
+	}()
+
+	tracer := tracerProvider.Tracer("sstpa.backend")
+	mutation.SetTracer(tracer)
+
 	server := &http.Server{
-		Addr:              cfg.Address,
-		Handler:           apihttp.NewRouterWithOptions(apihttp.RouterOptions{Version: version.Dev, Driver: driver, DatabaseName: cfg.Neo4jDatabase}),
+		Addr: cfg.Address,
+		Handler: apihttp.NewRouterWithOptions(apihttp.RouterOptions{
+			Version:      version.Dev,
+			Driver:       driver,
+			DatabaseName: cfg.Neo4jDatabase,
+			Tracer:       tracer,
+			Metrics:      metrics,
+		}),
 		ReadHeaderTimeout: cfg.ReadHeaderTimeout,
 		WriteTimeout:      cfg.WriteTimeout,
 	}
