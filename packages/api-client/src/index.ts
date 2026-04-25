@@ -79,6 +79,25 @@ export interface CommitReport {
   recipientsNotified: string[]
 }
 
+export interface SystemFromElementRequest {
+  actor?: Actor
+  elementHid: string
+  commitId?: string
+  versionId?: string
+  now?: string
+}
+
+export interface SystemFromElementResponse extends CommitReport {
+  systemHid: string
+  purposeHid: string
+  environmentHid: string
+  stateHid: string
+  securityHid: string
+  functionalFlowHid: string
+  requirementHids: string[]
+  assetHids: string[]
+}
+
 export interface MessageSummary {
   messageId: string
   subject: string
@@ -187,6 +206,13 @@ export class SSTPAClient {
 
   commitMutation(payload: MutationRequest) {
     return this.request<CommitReport>("/mutations", {
+      method: "POST",
+      body: withActor(payload, this.actor),
+    })
+  }
+
+  createSystemFromElement(payload: SystemFromElementRequest) {
+    return this.request<SystemFromElementResponse>("/system-creation/from-element", {
       method: "POST",
       body: withActor(payload, this.actor),
     })

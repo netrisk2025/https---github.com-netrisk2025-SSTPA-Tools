@@ -11,6 +11,7 @@
 - SRS §3.4.5 State Tool (all subsections)
 - SRS §3.4.6 Flow Tool (all subsections, both modes)
 - SRS §1.3.4 Secondary Relationships (State, Flow semantics)
+- `docs/verification/SSTPA_SHALL_Requirements.md` requirements for this slice: `1.3.4.3-001`, `1.3.4.5-001`, `1.3.4.12-001`, `3.4.3.1-001`, `3.4.3.2-001`, `3.4.3.3-001`, `3.4.5.1-001`, `3.4.6.1-001`, `3.4.6.2-002`
 - S04 + S07 outputs
 - Conventions doc.
 
@@ -18,7 +19,7 @@
 - State transitions remain a relationship, not a node (SRS §1.3.4 `[:TRANSITIONS_TO]`).
 - Flow Tool respects cross-SoI Function-flow prohibition.
 - STPA Control Flow mode enforces role validity (Interface can't be a ProcessModel, etc.).
-- Reports are read-only artifacts; generation does not mutate the graph except for the `Orphan`/`Baron` update allowed by SRS §3.4.3.3.
+- Reports are read-only artifacts; generation does not mutate the graph except for the `Orphan`/`Barren` update allowed by SRS §3.4.3.3. Legacy imports may normalize `Baron` to `Barren`, but new writes use `Barren`.
 - Report formats: text, markdown, MS Word, PDF (all four).
 
 **Tasks:**
@@ -37,7 +38,7 @@ Difficulty: medium · Files: `backend/internal/reports/specification/**`; route 
 
 ### S08-T04: Requirement-Traceability Gap Analysis Report
 Difficulty: medium · Files: `backend/internal/reports/traceability/**`; route added.
-**Agent Briefing:** Per SRS §3.4.3.3, updates `Orphan` and `Baron` properties on `(:Requirement)` as part of report generation — this is the one allowed mutation. ACID.
+**Agent Briefing:** Per SRS §3.4.3.3, updates `Orphan` and `Barren` properties on `(:Requirement)` as part of report generation — this is the one allowed mutation. ACID.
 
 ### S08-T05: Reports dropdown UI
 Difficulty: low · Files: `apps/desktop-shell/src/reports/**`; Control Panel wiring.

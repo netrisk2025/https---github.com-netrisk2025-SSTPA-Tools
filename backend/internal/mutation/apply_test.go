@@ -200,8 +200,312 @@ func TestApplyRejectsDuplicateRelationship(t *testing.T) {
 	}
 }
 
+func TestApplyCanonicalizesLegacyRelationshipAliasWhenAllowed(t *testing.T) {
+	fixture := testhelpers.StartNeo4j(t)
+	ctx := context.Background()
+	alice := metadata.Actor{Name: "Alice", Email: "alice@example.test"}
+
+	_, err := Apply(ctx, fixture.Driver, ApplyOptions{
+		Actor:                          alice,
+		Now:                            fixedTime(),
+		AllowLegacyRelationshipAliases: true,
+	}, Plan{Operations: []Operation{
+		{Kind: OperationCreateNode, NodeType: identity.NodeTypeAsset, HID: "AST_1_1"},
+		{Kind: OperationCreateNode, NodeType: identity.NodeTypeRegime, HID: "REG_1_1"},
+		{
+			Kind:             OperationCreateRelationship,
+			RelationshipName: "Has",
+			FromHID:          "AST_1_1",
+			FromType:         identity.NodeTypeAsset,
+			ToHID:            "REG_1_1",
+			ToType:           identity.NodeTypeRegime,
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	session := fixture.Driver.NewSession(ctx, neo4j.SessionConfig{})
+	defer session.Close(ctx)
+	value, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		result, err := tx.Run(ctx, `
+MATCH (:Asset {HID: "AST_1_1"})-[relationship:HAS_REGIME]->(:Regime {HID: "REG_1_1"})
+RETURN count(relationship) AS count
+`, nil)
+		if err != nil {
+			return nil, err
+		}
+		record, err := result.Single(ctx)
+		if err != nil {
+			return nil, err
+		}
+		count, _ := record.Get("count")
+		return count, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value != int64(1) {
+		t.Fatalf("HAS_REGIME count = %#v, want 1", value)
+	}
+}
+
+func TestApplyRenamesLegacyRequirementBaronPropertyWhenAllowed(t *testing.T) {
+	fixture := testhelpers.StartNeo4j(t)
+	ctx := context.Background()
+	alice := metadata.Actor{Name: "Alice", Email: "alice@example.test"}
+
+	_, err := Apply(ctx, fixture.Driver, ApplyOptions{
+		Actor:                      alice,
+		Now:                        fixedTime(),
+		AllowLegacyPropertyAliases: true,
+	}, Plan{Operations: []Operation{{
+		Kind:     OperationCreateNode,
+		NodeType: identity.NodeTypeRequirement,
+		HID:      "REQ_1_1",
+		Properties: map[string]any{
+			"Baron": false,
+		},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	session := fixture.Driver.NewSession(ctx, neo4j.SessionConfig{})
+	defer session.Close(ctx)
+	value, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		result, err := tx.Run(ctx, `
+MATCH (requirement:Requirement {HID: "REQ_1_1"})
+RETURN requirement.Barren AS barren, requirement.Baron AS baron
+`, nil)
+		if err != nil {
+			return nil, err
+		}
+		return result.Single(ctx)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := value.(*neo4j.Record)
+	barren, _ := record.Get("barren")
+	baron, hasBaron := record.Get("baron")
+	if barren != false || (hasBaron && baron != nil) {
+		t.Fatalf("legacy property normalization failed: Barren=%#v Baron=%#v", barren, baron)
+	}
+}
+
+func TestApplyDefaultsRequiredRelationshipProperties(t *testing.T) {
+	fixture := testhelpers.StartNeo4j(t)
+	ctx := context.Background()
+	alice := metadata.Actor{Name: "Alice", Email: "alice@example.test"}
+
+	_, err := Apply(ctx, fixture.Driver, ApplyOptions{Actor: alice, Now: fixedTime()}, Plan{Operations: []Operation{
+		{Kind: OperationCreateNode, NodeType: identity.NodeTypeState, HID: "ST_1_1"},
+		{Kind: OperationCreateNode, NodeType: identity.NodeTypeState, HID: "ST_1_2"},
+		{
+			Kind:             OperationCreateRelationship,
+			RelationshipName: "TRANSITIONS_TO",
+			FromHID:          "ST_1_1",
+			FromType:         identity.NodeTypeState,
+			ToHID:            "ST_1_2",
+			ToType:           identity.NodeTypeState,
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	session := fixture.Driver.NewSession(ctx, neo4j.SessionConfig{})
+	defer session.Close(ctx)
+	value, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		result, err := tx.Run(ctx, `
+MATCH (:State {HID: "ST_1_1"})-[relationship:TRANSITIONS_TO]->(:State {HID: "ST_1_2"})
+RETURN relationship.TransitionKind AS transitionKind
+`, nil)
+		if err != nil {
+			return nil, err
+		}
+		record, err := result.Single(ctx)
+		if err != nil {
+			return nil, err
+		}
+		transitionKind, _ := record.Get("transitionKind")
+		return transitionKind, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value != "FUNCTIONAL" {
+		t.Fatalf("TransitionKind = %#v, want FUNCTIONAL", value)
+	}
+}
+
+func TestApplyRejectsDerivedAssetFromNonPrimaryTarget(t *testing.T) {
+	fixture := testhelpers.StartNeo4j(t)
+	ctx := context.Background()
+	alice := metadata.Actor{Name: "Alice", Email: "alice@example.test"}
+
+	_, err := Apply(ctx, fixture.Driver, ApplyOptions{Actor: alice, Now: fixedTime()}, Plan{Operations: []Operation{
+		{Kind: OperationCreateNode, NodeType: identity.NodeTypeAsset, HID: "AST_1_1", Properties: map[string]any{"IsPrimary": true}},
+		{Kind: OperationCreateNode, NodeType: identity.NodeTypeAsset, HID: "AST_1_2", Properties: map[string]any{"IsPrimary": false}},
+		{Kind: OperationCreateNode, NodeType: identity.NodeTypeAsset, HID: "AST_1_3", Properties: map[string]any{"IsPrimary": false}},
+		{
+			Kind:             OperationCreateRelationship,
+			RelationshipName: "DERIVED_FROM",
+			FromHID:          "AST_1_2",
+			FromType:         identity.NodeTypeAsset,
+			ToHID:            "AST_1_1",
+			ToType:           identity.NodeTypeAsset,
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = Apply(ctx, fixture.Driver, ApplyOptions{Actor: alice, Now: fixedTime()}, Plan{Operations: []Operation{{
+		Kind:             OperationCreateRelationship,
+		RelationshipName: "DERIVED_FROM",
+		FromHID:          "AST_1_3",
+		FromType:         identity.NodeTypeAsset,
+		ToHID:            "AST_1_2",
+		ToType:           identity.NodeTypeAsset,
+	}}})
+	if err == nil {
+		t.Fatal("expected DERIVED_FROM to reject a non-primary target")
+	}
+}
+
+func TestApplyAutoGeneratesLossAndRootGoalForAssetCriticalityAssuranceEnvironment(t *testing.T) {
+	fixture := testhelpers.StartNeo4j(t)
+	ctx := context.Background()
+	alice := metadata.Actor{Name: "Alice", Email: "alice@example.test"}
+
+	report, err := Apply(ctx, fixture.Driver, ApplyOptions{Actor: alice, Now: fixedTime(), VersionID: "v58-test"}, Plan{Operations: []Operation{
+		{
+			Kind:     OperationCreateNode,
+			NodeType: identity.NodeTypeEnvironment,
+			HID:      "ENV_1_1",
+			Properties: map[string]any{
+				"Name": "Operational",
+			},
+		},
+		{
+			Kind:     OperationCreateNode,
+			NodeType: identity.NodeTypeAsset,
+			HID:      "AST_1_1",
+			Properties: map[string]any{
+				"Name":             "Mission Data",
+				"AssetType":        "PRIMARY",
+				"IsPrimary":        true,
+				"SafetyCritical":   true,
+				"Confidentiality":  true,
+				"Availability":     true,
+				"NonRepudiation":   false,
+				"MissionCritical":  false,
+				"FlightCritical":   false,
+				"SecurityCritical": false,
+			},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsString(report.NodesChanged, "LOS_1_1") || !containsString(report.NodesChanged, "G_1_1") {
+		t.Fatalf("generated Loss/Goal HIDs not reported in NodesChanged: %#v", report.NodesChanged)
+	}
+
+	assertLossGoalCounts(t, ctx, fixture.Driver, 2, 2)
+
+	_, err = Apply(ctx, fixture.Driver, ApplyOptions{Actor: alice, Now: fixedTime().Add(time.Minute), VersionID: "v58-test"}, Plan{Operations: []Operation{{
+		Kind: OperationUpdateNode,
+		HID:  "AST_1_1",
+		Properties: map[string]any{
+			"ShortDescription": "still the same logical asset",
+		},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertLossGoalCounts(t, ctx, fixture.Driver, 2, 2)
+}
+
+func TestApplyRejectsGoalStructureCycle(t *testing.T) {
+	fixture := testhelpers.StartNeo4j(t)
+	ctx := context.Background()
+	alice := metadata.Actor{Name: "Alice", Email: "alice@example.test"}
+
+	_, err := Apply(ctx, fixture.Driver, ApplyOptions{Actor: alice, Now: fixedTime()}, Plan{Operations: []Operation{
+		{Kind: OperationCreateNode, NodeType: identity.NodeTypeGoal, HID: "G_1_1"},
+		{Kind: OperationCreateNode, NodeType: identity.NodeTypeStrategy, HID: "SGY_1_1"},
+		{
+			Kind:             OperationCreateRelationship,
+			RelationshipName: "SUPPORTED_BY",
+			FromHID:          "G_1_1",
+			FromType:         identity.NodeTypeGoal,
+			ToHID:            "SGY_1_1",
+			ToType:           identity.NodeTypeStrategy,
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = Apply(ctx, fixture.Driver, ApplyOptions{Actor: alice, Now: fixedTime()}, Plan{Operations: []Operation{{
+		Kind:             OperationCreateRelationship,
+		RelationshipName: "SUPPORTED_BY",
+		FromHID:          "SGY_1_1",
+		FromType:         identity.NodeTypeStrategy,
+		ToHID:            "G_1_1",
+		ToType:           identity.NodeTypeGoal,
+	}}})
+	if err == nil {
+		t.Fatal("expected Goal Structure cycle to be rejected")
+	}
+}
+
 func fixedTime() time.Time {
 	return time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC)
+}
+
+func assertLossGoalCounts(t *testing.T, ctx context.Context, driver neo4j.DriverWithContext, wantLosses int64, wantGoals int64) {
+	t.Helper()
+	session := driver.NewSession(ctx, neo4j.SessionConfig{})
+	defer session.Close(ctx)
+
+	value, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		result, err := tx.Run(ctx, `
+MATCH (asset:Asset {HID: "AST_1_1"})
+OPTIONAL MATCH (asset)-[:HAS_LOSS]->(loss:Loss)-[:HAS_ENVIRONMENT]->(:Environment {HID: "ENV_1_1"})
+WITH asset, collect(DISTINCT loss) AS losses
+OPTIONAL MATCH (asset)-[:HAS_GOAL]->(goal:Goal)
+WHERE goal.RootForLossHID IN [loss IN losses | loss.HID]
+RETURN size(losses) AS losses, count(DISTINCT goal) AS goals
+`, nil)
+		if err != nil {
+			return nil, err
+		}
+		return result.Single(ctx)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	record := value.(*neo4j.Record)
+	losses, _ := record.Get("losses")
+	goals, _ := record.Get("goals")
+	if losses != wantLosses || goals != wantGoals {
+		t.Fatalf("generated counts = losses:%#v goals:%#v, want losses:%d goals:%d", losses, goals, wantLosses, wantGoals)
+	}
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func TestApplyRecordsTraceSpan(t *testing.T) {

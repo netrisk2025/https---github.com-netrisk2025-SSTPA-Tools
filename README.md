@@ -21,7 +21,8 @@ This repository is scaffolded for two near-term needs:
 
 ## Working Model
 
-- Treat `docs/srs/source/SSTPA Tool SRS V56.md` as the current upstream draft.
+- Treat `docs/srs/SSTPA Tool SRS V58.md` as the current authoritative SRS, intended as version 0.5.8.
+- Use `docs/verification/SSTPA_SHALL_Requirements.md` as the consolidated V58 SHALL reference for migration testing.
 - Record approved, deferred, or superseded SHALL statements in `docs/verification/shall-register.md`.
 - Map approved SHALL statements to verification assets in `docs/verification/verification-matrix.md`.
 - Keep add-on tools thinly coupled to the shell through contracts in `packages/addon-sdk/`.

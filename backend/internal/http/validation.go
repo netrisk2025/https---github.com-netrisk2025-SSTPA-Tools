@@ -66,8 +66,14 @@ func validateRelationshipCatalog(payload validateRelationshipRequest) validation
 	if _, ok := identity.TypeID(payload.ToType); !ok {
 		return validationResponse{Valid: false, Reason: fmt.Sprintf("unknown toType %q", payload.ToType)}
 	}
-	if !graph.AllowedRelationship(payload.RelationshipName, payload.FromType, payload.ToType) {
+	relationship, ok := graph.LookupRelationship(payload.RelationshipName, payload.FromType, payload.ToType)
+	if !ok {
 		return validationResponse{Valid: false, Reason: fmt.Sprintf("relationship %s from %s to %s is not allowed", payload.RelationshipName, payload.FromType, payload.ToType)}
+	}
+	if payload.FromHID != "" && payload.ToHID != "" {
+		if err := graph.ValidateSoIBoundary(relationship, payload.FromHID, payload.ToHID, graph.DefaultRelationshipProperties(relationship)); err != nil {
+			return validationResponse{Valid: false, Reason: err.Error()}
+		}
 	}
 
 	return validationResponse{Valid: true, Reason: "allowed by relationship catalog"}

@@ -1,0 +1,16 @@
+# SRS V58 Slice Verification Index
+
+This file maps implementation slices to concrete requirement IDs in `docs/verification/SSTPA_SHALL_Requirements.md`. Slice completion notes must cite the relevant IDs below and either add automated evidence to `docs/verification/verification-matrix.md` or explicitly mark manual verification.
+
+| Slice | Scope | Primary SHALL IDs | Required Verification |
+|---|---|---|---|
+| S02 | Canonical labels, relationship catalog, HID/uuid, index bootstrap | `1.3-001`, `1.3-002`, `1.3-003`, `1.3.2-001` through `1.3.2-011`, `1.3.3-001`, `1.3.8-001`, `1.3.8.1-001`, `1.3.8.2.1-001` | Go unit tests for identity/schema registry; Neo4j integration-ready bootstrap tests |
+| S03 | Transactional mutation, ownership, notifications | `1.3.9.1-001`, `1.3.9.1-002`, `2.2.10.8-001`, `2.2.10.8.1-001`, `2.2.10.8.2-001` | Neo4j integration tests for rollback, notification creation, owner changes |
+| S04 | REST API, relationship validation, pagination, reference endpoints | `1.3-002`, `1.3.5-002`, `2.2.10.1-001`, `2.2.10.2-001`, `2.2.10.4-002`, `2.2.10.5-001`, `2.2.10.10-001`, `2.2.10.10-002` | API contract and integration tests for validation, node lookup, search, references |
+| S06 | Shell, Control Panel, SoI Panel, Main Panel, Data Drawer | `3.3-003`, `3.4-001`, `3.5-001`, `3.6-001`, `3.7.5-001`, `3.7.6-001` | Playwright workflow: select SoI, open Data Drawer, commit mutation, display report |
+| S07 | Navigator and Requirements Tool | `3.4.1-001`, `3.4.1-002`, `3.4.1.1-002`, `3.4.1.1-006`, `3.4.2.2-001`, `3.4.2.3-001`, `3.4.2.16-001` | Playwright and API-backed tests for SoI selection, clone validation, requirements hierarchy |
+| S08 | State Tool, Flow Tool, reports | `1.3.4.3-001`, `1.3.4.5-001`, `1.3.4.12-001`, `3.4.3.1-001`, `3.4.3.2-001`, `3.4.3.3-001`, `3.4.5.1-001`, `3.4.6.1-001`, `3.4.6.2-002` | Report output tests; Playwright for State and Flow modes; mutation tests for transitions and flow rules |
+| S09 | Loss Tool and AttackTreeJSON | `1.3.1.5-002`, `1.3.4.10-001`, `1.3.4.11-001`, `3.4.7.11-003`, `3.4.10.1-001`, `3.4.10.1-002` | AttackTreeJSON schema tests; DAG cycle rejection; Playwright Loss Tool workflow over S13-generated Loss nodes |
+| S10 | Message Center, Reference Catalog, Admin/User onboarding | `1.3.10-005`, `1.5.6-003`, `3.3.1-001` through `3.3.1-006`, `3.4.4.1-001`, `3.4.4.3-001`, `3.4.4.8-003`, `3.4.4.10-003`, `3.4.4.13-001` | API and UI tests for mailbox, read-only reference inspection, REFERENCES assignment/removal |
+| S13 | V58 Asset Manager, System Creation, Loss/Goal generation | `1.3.4.1-001`, `1.3.4.2-001`, `1.3.4.11-001`, `1.3.7-001`, `3.4.7.1-001`, `3.4.7.6-001`, `3.4.7.7-001`, `3.4.7.8-005`, `3.4.7.10-001`, `3.4.7.14-001`, `3.4.7.19-001` | Neo4j integration tests for System creation, idempotent Loss/Goal generation, Regime cloning, DERIVED_FROM; Playwright Asset Manager workflow |
+| S14 | V58 Goal Keeper and diagram persistence | `1.3.1.8-001`, `1.3.1.8-002`, `1.3.1.8-003`, `1.3.4.13-001`, `1.3.6-001`, `3.4.11.1-001`, `3.4.11.1-005`, `3.4.11.5-002`, `3.4.11.5-003`, `3.4.11.6-001`, `3.4.11.9-001`, `3.4.11.12-001` | DAG cycle rejection, Solution evidence validation, JSON save/reopen with stale-reference reconciliation |

@@ -21,6 +21,8 @@ const (
 	NodeTypeControlStructure  NodeType = "ControlStructure"
 	NodeTypeAsset             NodeType = "Asset"
 	NodeTypeSecurity          NodeType = "Security"
+	NodeTypeFunctionalFlow    NodeType = "FunctionalFlow"
+	NodeTypeRegime            NodeType = "Regime"
 	NodeTypeConstraint        NodeType = "Constraint"
 	NodeTypeRequirement       NodeType = "Requirement"
 	NodeTypeValidation        NodeType = "Validation"
@@ -35,11 +37,18 @@ const (
 	NodeTypeHazard            NodeType = "Hazard"
 	NodeTypeLoss              NodeType = "Loss"
 	NodeTypeAttack            NodeType = "Attack"
+	NodeTypeGoal              NodeType = "Goal"
+	NodeTypeStrategy          NodeType = "Strategy"
+	NodeTypeContext           NodeType = "Context"
+	NodeTypeJustification     NodeType = "Justification"
+	NodeTypeAssumption        NodeType = "Assumption"
+	NodeTypeSolution          NodeType = "Solution"
 	NodeTypeSSTPATool         NodeType = "SSTPA_Tool"
 	NodeTypeUserRegistry      NodeType = "UserRegistry"
 	NodeTypeAdminRegistry     NodeType = "AdminRegistry"
 	NodeTypeUser              NodeType = "User"
 	NodeTypeAdmin             NodeType = "Admin"
+	NodeTypeMasterRegime      NodeType = "MasterRegime"
 )
 
 var typeIDs = map[NodeType]string{
@@ -56,6 +65,8 @@ var typeIDs = map[NodeType]string{
 	NodeTypeControlStructure:  "CS",
 	NodeTypeAsset:             "AST",
 	NodeTypeSecurity:          "SEC",
+	NodeTypeFunctionalFlow:    "FF",
+	NodeTypeRegime:            "REG",
 	NodeTypeConstraint:        "CONSTR",
 	NodeTypeRequirement:       "REQ",
 	NodeTypeValidation:        "VAL",
@@ -70,11 +81,18 @@ var typeIDs = map[NodeType]string{
 	NodeTypeHazard:            "HAZ",
 	NodeTypeLoss:              "LOS",
 	NodeTypeAttack:            "ATK",
+	NodeTypeGoal:              "G",
+	NodeTypeStrategy:          "SGY",
+	NodeTypeContext:           "CX",
+	NodeTypeAssumption:        "ASS",
+	NodeTypeJustification:     "JUS",
+	NodeTypeSolution:          "SOL",
 	NodeTypeSSTPATool:         "SST",
 	NodeTypeUserRegistry:      "URG",
 	NodeTypeAdminRegistry:     "ARG",
 	NodeTypeUser:              "USR",
 	NodeTypeAdmin:             "ADM",
+	NodeTypeMasterRegime:      "MRG",
 }
 
 var orderedTypes = []NodeType{
@@ -91,6 +109,8 @@ var orderedTypes = []NodeType{
 	NodeTypeControlStructure,
 	NodeTypeAsset,
 	NodeTypeSecurity,
+	NodeTypeFunctionalFlow,
+	NodeTypeRegime,
 	NodeTypeConstraint,
 	NodeTypeRequirement,
 	NodeTypeValidation,
@@ -105,11 +125,18 @@ var orderedTypes = []NodeType{
 	NodeTypeHazard,
 	NodeTypeLoss,
 	NodeTypeAttack,
+	NodeTypeGoal,
+	NodeTypeStrategy,
+	NodeTypeContext,
+	NodeTypeJustification,
+	NodeTypeAssumption,
+	NodeTypeSolution,
 	NodeTypeSSTPATool,
 	NodeTypeUserRegistry,
 	NodeTypeAdminRegistry,
 	NodeTypeUser,
 	NodeTypeAdmin,
+	NodeTypeMasterRegime,
 }
 
 func TypeID(nodeType NodeType) (string, bool) {

@@ -20,7 +20,13 @@
       "@sstpa/ui": ["packages/ui/src/index.ts"],
       "@sstpa/navigator-tool": ["addons/navigator/src/index.ts"],
       "@sstpa/requirements-tool": ["addons/requirements/src/index.ts"],
-      "@sstpa/message-center-tool": ["addons/message-center/src/index.ts"]
+      "@sstpa/message-center-tool": ["addons/message-center/src/index.ts"],
+      "@sstpa/asset-manager-tool": ["addons/asset-manager/src/index.ts"],
+      "@sstpa/goal-keeper-tool": ["addons/goal-keeper/src/index.ts"],
+      "@sstpa/loss-tool": ["addons/loss-tool/src/index.ts"],
+      "@sstpa/flow-tool": ["addons/flow-tool/src/index.ts"],
+      "@sstpa/state-tool": ["addons/state-tool/src/index.ts"],
+      "@sstpa/reference-catalog-tool": ["addons/reference-catalog/src/index.ts"]
     }
   }
 }

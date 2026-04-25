@@ -96,6 +96,10 @@ paths:
     post:
       responses:
         "201": { description: Transactional mutation CommitReport. }
+  /system-creation/from-element:
+    post:
+      responses:
+        "201": { description: Created child System scaffold from an Element, including copied Requirements and Assets. }
   /messages:
     get:
       responses:

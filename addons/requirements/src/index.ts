@@ -13,6 +13,15 @@ const requirementsTool: ToolModule = {
     summary: "Requirement hierarchy visualization, editing, and traceability work.",
     inputContracts: ["selected-requirement", "current-soi"],
     outputContracts: ["updated-requirement", "traceability-request"],
+    requiredContexts: ["current-soi", "current-user", "data-drawer"],
+    graphScopes: [
+      {
+        nodeTypes: ["Requirement", "Capability", "Purpose", "Connection", "Interface", "Function", "Element", "Constraint", "Countermeasure"],
+        relationshipTypes: ["HAS_REQUIREMENT", "PARENTS", "VERIFIED_BY"],
+        allowsCrossSoI: true,
+      },
+    ],
+    requirementIds: ["1.3.4.7-001", "1.3.4.8-001", "3.4.2.2-001", "3.4.2.16-001"],
   },
   load: async () => ({ component: "requirements" }),
 }

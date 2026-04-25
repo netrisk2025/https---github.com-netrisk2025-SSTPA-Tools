@@ -5,6 +5,7 @@ This project intends to shrink the draft SRS down to an approved set of valid SH
 Use the following artifacts together:
 
 - `shall-register.md` records which SHALL statements are currently approved, deferred, superseded, or rejected.
+- `SSTPA_SHALL_Requirements.md` is the consolidated extracted SHALL set from authoritative SRS V58 / intended version 0.5.8 and is the broad reference for migration testing.
 - `verification-matrix.md` maps approved SHALL statements to automated tests, contract checks, integration tests, or manual verification.
 
 Verification policy:
